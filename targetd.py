@@ -24,8 +24,39 @@
 
 import symmetricjsonrpc, sys
 import setproctitle
+import rtslib
+import lvm
 
 setproctitle.setproctitle("targetd")
+
+# TODO: read config file
+
+root = rtslib.RTSRoot()
+
+vg_name = "test"
+
+lvm_handle = lvm.Liblvm()
+
+vg = lvm_handle.vgOpen(vg_name, "w")
+
+def volumes():
+    output = []
+    for lv in vg.listLVs():
+        output.append(dict(name=lv.getName(), size=lv.getSize(),
+                           uuid=lv.getUuid()))
+    return output
+
+def create():
+    print "create"
+
+def destroy():
+    print "destroy"
+
+mapping = dict(
+    volumes=volumes,
+    create=create,
+    destroy=destroy,
+    )
 
 class TargetRPCServer(symmetricjsonrpc.RPCServer):
     class InboundConnection(symmetricjsonrpc.RPCServer.InboundConnection):
@@ -42,13 +73,9 @@ class TargetRPCServer(symmetricjsonrpc.RPCServer):
 
                 def dispatch_request(self, subject):
                     print "dispatch_request(%s)" % (repr(subject),)
-                    assert subject['method'] == "ping"
-                    # Call the client back
-                    # self.parent is a symmetricjsonrpc.RPCClient subclass (see the client code for more examples)
-                    res = self.parent.request("pingping", wait_for_response=True)
-                    print "parent.pingping => %s" % (repr(res),)
-                    assert res == "pingpong"
-                    return "pong"
+                    assert subject['method'] in mapping
+                    return mapping[subject['method']]()
+                    
 
 if '--help' in sys.argv:
     print """client.py
