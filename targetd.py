@@ -22,7 +22,8 @@
 # A server that exposes a network interface for the LIO
 # kernel target.
 
-import symmetricjsonrpc, sys
+import symmetricjsonrpc
+import sys
 import setproctitle
 import rtslib
 import lvm
