@@ -47,8 +47,9 @@ def volumes():
                            uuid=lv.getUuid()))
     return output
 
-def create():
-    print "create"
+def create(name, size):
+    vg.createLvLinear(name, int(size))
+    print "LV %s created, size %s" % (name, size)
 
 def destroy(name):
     lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
