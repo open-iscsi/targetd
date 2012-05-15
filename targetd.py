@@ -48,8 +48,8 @@ def volumes():
     return output
 
 def create(name, size):
-    vg.createLvLinear(name, int(size))
-    print "LV %s created, size %s" % (name, size)
+    lv = vg.createLvLinear(name, int(size))
+    print "LV %s created, size %s" % (name, lv.getSize())
 
 def destroy(name):
     lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
