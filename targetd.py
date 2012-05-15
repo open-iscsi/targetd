@@ -49,8 +49,12 @@ def volumes():
 def create():
     print "create"
 
-def destroy():
-    print "destroy"
+def destroy(name):
+    lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
+    if not len(lvs) == 1:
+        raise LookupError("lv not found")
+    lvs[0].remove()
+    print "LV %s removed" % name
 
 mapping = dict(
     volumes=volumes,
