@@ -73,8 +73,14 @@ class TargetRPCServer(symmetricjsonrpc.RPCServer):
 
                 def dispatch_request(self, subject):
                     print "dispatch_request(%s)" % (repr(subject),)
-                    assert subject['method'] in mapping
-                    return mapping[subject['method']]()
+                    if subject['method'] not in mapping:
+                        raise Exception("method not found")
+                    params = subject['params']
+                    print "params", params
+                    if not params:
+                        return mapping[subject['method']]()
+                    else:
+                        return mapping[subject['method']](**params)
                     
 
 if '--help' in sys.argv:
