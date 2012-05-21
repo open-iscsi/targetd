@@ -24,7 +24,9 @@
 
 import symmetricjsonrpc
 import sys
+import contextlib
 import setproctitle
+import signal
 import rtslib
 import lvm
 
@@ -36,27 +38,43 @@ root = rtslib.RTSRoot()
 
 vg_name = "test"
 
+# fail early if can't access vg
 lvm_handle = lvm.Liblvm()
+test_vg = lvm_handle.vgOpen(vg_name, "w")
+test_vg.close()
+lvm_handle.close()
 
-vg = lvm_handle.vgOpen(vg_name, "w")
+#
+# We can't keep lvm/vg handles open continually since liblvm does weird
+# things with signals. Instead, define this context manager that eases
+# getting vg in each method and calls close() on vg and lvm objs.
+#
+@contextlib.contextmanager
+def vgopen():
+    with contextlib.closing(lvm.Liblvm()) as lvm_handle:
+        with contextlib.closing(lvm_handle.vgOpen(vg_name, "w")) as vg:
+            yield vg
 
 def volumes():
     output = []
-    for lv in vg.listLVs():
-        output.append(dict(name=lv.getName(), size=lv.getSize(),
-                           uuid=lv.getUuid()))
+    with vgopen() as vg:
+        for lv in vg.listLVs():
+            output.append(dict(name=lv.getName(), size=lv.getSize(),
+                               uuid=lv.getUuid()))
     return output
 
 def create(name, size):
-    lv = vg.createLvLinear(name, int(size))
-    print "LV %s created, size %s" % (name, lv.getSize())
+    with vgopen() as vg:
+        lv = vg.createLvLinear(name, int(size))
+        print "LV %s created, size %s" % (name, lv.getSize())
 
 def destroy(name):
-    lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
-    if not len(lvs) == 1:
-        raise LookupError("lv not found")
-    lvs[0].remove()
-    print "LV %s removed" % name
+    with vgopen() as vg:
+        lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
+        if not len(lvs) == 1:
+            raise LookupError("lv not found")
+        lvs[0].remove()
+        print "LV %s removed" % name
 
 mapping = dict(
     volumes=volumes,
@@ -75,7 +93,7 @@ class TargetRPCServer(symmetricjsonrpc.RPCServer):
                     # notification, not a method for this - when the
                     # server's dead, there's no way to inform the
                     # client that it is...
-                    self.parent.parent.parent.shutdown()
+                    #self.parent.parent.parent.shutdown()
 
                 def dispatch_request(self, subject):
                     print "dispatch_request(%s)" % (repr(subject),)
@@ -116,6 +134,14 @@ s.listen(1)
 # Create a server thread handling incoming connections
 server = TargetRPCServer(s, name="targetd")
 
+# wait for signal then shutdown server
+print "Server running on port 18700"
+try:
+    signal.pause()
+except KeyboardInterrupt:
+    pass
+
+server.shutdown()
+
 # Wait for the server to stop serving clients
 server.join()
-
