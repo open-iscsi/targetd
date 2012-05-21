@@ -23,41 +23,18 @@
 #
 # Test client to exercise targetd.
 
-import symmetricjsonrpc, sys
+import symmetricjsonrpc
+import sys
 
-class PingRPCClient(symmetricjsonrpc.RPCClient):
-    class Request(symmetricjsonrpc.RPCClient.Request):
-        def dispatch_request(self, subject):
-            # Handle callbacks from the server
-            print "dispatch_request(%s)" % (repr(subject),)
-            assert subject['method'] == "pingping"
-            return "pingpong"
-
-if '--help' in sys.argv:
-    print """client.py
-    --ssl
-        Encrypt communication with SSL using M2Crypto. Requires a
-        server.pem in the current directory.
-"""
-    sys.exit(0)
-
-if '--ssl' in sys.argv:
-    # Set up an SSL connection
-    import M2Crypto
-    ctx = M2Crypto.SSL.Context()
-    ctx.set_verify(M2Crypto.SSL.verify_peer | M2Crypto.SSL.verify_fail_if_no_peer_cert, depth=9)
-    if ctx.load_verify_locations('server.pem') != 1: raise Exception('No CA certs')
-    s = M2Crypto.SSL.Connection(ctx)
-else:
-    # Set up a TCP socket
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Set up a TCP socket
+import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 #  Connect to the server
 s.connect(('localhost', 18700))
 
 # Create a client thread handling for incoming requests
-client = PingRPCClient(s)
+client = symmetricjsonrpc.RPCClient(s)
 
 # Call a method on the server
 res = client.request("volumes", wait_for_response=True)
