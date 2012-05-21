@@ -54,7 +54,7 @@ else:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 #  Connect to the server
-s.connect(('localhost', 4712))
+s.connect(('localhost', 18700))
 
 # Create a client thread handling for incoming requests
 client = PingRPCClient(s)

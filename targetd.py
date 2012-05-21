@@ -110,7 +110,7 @@ else:
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 #  Start listening on the socket for connections
-s.bind(('', 4712))
+s.bind(('', 18700))
 s.listen(1)
 
 # Create a server thread handling incoming connections
