@@ -22,13 +22,14 @@
 # A server that exposes a network interface for the LIO
 # kernel target.
 
-import symmetricjsonrpc
 import sys
 import contextlib
 import setproctitle
 import signal
 import rtslib
 import lvm
+import json
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
 setproctitle.setproctitle("targetd")
 
@@ -82,66 +83,38 @@ mapping = dict(
     destroy=destroy,
     )
 
-class TargetRPCServer(symmetricjsonrpc.RPCServer):
-    class InboundConnection(symmetricjsonrpc.RPCServer.InboundConnection):
-        class Thread(symmetricjsonrpc.RPCServer.InboundConnection.Thread):
-            class Request(symmetricjsonrpc.RPCServer.InboundConnection.Thread.Request):
-                def dispatch_notification(self, subject):
-                    print "dispatch_notification(%s)" % (repr(subject),)
-                    assert subject['method'] == "shutdown"
-                    # Shutdown the server. Note: We must use a
-                    # notification, not a method for this - when the
-                    # server's dead, there's no way to inform the
-                    # client that it is...
-                    #self.parent.parent.parent.shutdown()
+class LIOHandler(BaseHTTPRequestHandler):
 
-                def dispatch_request(self, subject):
-                    print "dispatch_request(%s)" % (repr(subject),)
-                    if subject['method'] not in mapping:
-                        raise Exception("method not found")
-                    params = subject['params']
-                    print "params", params
-                    if not params:
-                        return mapping[subject['method']]()
-                    else:
-                        return mapping[subject['method']](**params)
-                    
+    def do_POST(self):
+        if self.path == "/liorpc":
+            try:
+                content_len = int(self.headers.getheader('content-length'))
+                req = json.loads(self.rfile.read(content_len))
 
-if '--help' in sys.argv:
-    print """client.py
-    --ssl
-        Encrypt communication with SSL using M2Crypto. Requires a
-        server.pem and server.key in the current directory.
-"""
-    sys.exit(0)
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
 
-if '--ssl' in sys.argv:
-    # Set up a SSL socket
-    import M2Crypto
-    ctx = M2Crypto.SSL.Context()
-    ctx.load_cert('server.pem', 'server.key')
-    s = M2Crypto.SSL.Connection(ctx)
-else:
-    # Set up a TCP socket
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                if "params" in req and req['params']:
+                    result = mapping[req['method']](**req['params'])
+                else:
+                    result = mapping[req['method']]()
 
-#  Start listening on the socket for connections
-s.bind(('', 18700))
-s.listen(1)
+                rpcdata = json.dumps(dict(result=result, id=req['id']))
 
-# Create a server thread handling incoming connections
-server = TargetRPCServer(s, name="targetd")
+            except Exception, e:
+                rpcdata = json.dumps(dict(error=dict(code=-1, message=str(e)), id=req['id']))
+            finally:
+                self.wfile.write(rpcdata)
+                self.wfile.close()
+        else:
+            self.send_error(404)
 
-# wait for signal then shutdown server
-print "Server running on port 18700"
+
 try:
-    signal.pause()
+    server = HTTPServer(('', 18700), LIOHandler)
+    print "started server"
+    server.serve_forever()
 except KeyboardInterrupt:
-    pass
-
-server.shutdown()
-
-# Wait for the server to stop serving clients
-server.join()
+    print "SIGINT received, shutting down"
+    server.socket.close()
