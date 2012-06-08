@@ -39,6 +39,9 @@ root = rtslib.RTSRoot()
 
 vg_name = "test"
 
+user = "foo"
+password = "bar"
+
 # fail early if can't access vg
 lvm_handle = lvm.Liblvm()
 test_vg = lvm_handle.vgOpen(vg_name, "w")
@@ -86,29 +89,66 @@ mapping = dict(
 class LIOHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
-        if self.path == "/liorpc":
+
+        # get basic auth string, strip "Basic "
+        # TODO: add SSL/TLS, or this is not secure
+        try:
+            auth64 = self.headers.getheader("Authorization")[6:]
+            in_user, in_pass = auth64.decode('base64').split(":")
+        except:
+            self.send_error(400)
+            return
+
+        if in_user != user or in_pass != password:
+            self.send_error(401)
+            return
+
+        if not self.path == "/liorpc":
+            self.send_error(404)
+            return
+
+        try:
+            error = (-1, "jsonrpc error")
+            id = None
             try:
                 content_len = int(self.headers.getheader('content-length'))
                 req = json.loads(self.rfile.read(content_len))
+            except ValueError:
+                # see http://www.jsonrpc.org/specification for errcodes
+                errcode = (-32700, "parse error")
+                raise
 
-                self.send_response(200)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
 
-                if "params" in req and req['params']:
-                    result = mapping[req['method']](**req['params'])
+            try:
+                version = req['jsonrpc']
+                if version != "2.0":
+                    raise ValueError
+                method = req['method']
+                id = req['id']
+                params = req.get('params', None)
+            except (KeyError, ValueError):
+                error = (-32600, "not a valid jsonrpc-2.0 request")
+                raise
+
+            try:
+                if params:
+                    result = mapping[method](**params)
                 else:
-                    result = mapping[req['method']]()
+                    result = mapping[method]()
+            except KeyError:
+                error = (-32601, "method %s not found" % method)
+                raise
 
-                rpcdata = json.dumps(dict(result=result, id=req['id']))
+            rpcdata = json.dumps(dict(result=result, id=id))
 
-            except Exception, e:
-                rpcdata = json.dumps(dict(error=dict(code=-1, message=str(e)), id=req['id']))
-            finally:
-                self.wfile.write(rpcdata)
-                self.wfile.close()
-        else:
-            self.send_error(404)
+        except Exception, e:
+            rpcdata = json.dumps(dict(error=dict(code=error[0], message=error[1]), id=id))
+        finally:
+            self.wfile.write(rpcdata)
+            self.wfile.close()
 
 
 try:
