@@ -1,6 +1,16 @@
-#! /usr/bin/env python
-# -*- coding: utf-8 -*-
-# vim: set fileencoding=UTF-8 :
+#!/usr/bin/env python
+
+# based on code from git://github.com/openstack/nova.git
+# nova/volume/nexenta/jsonrpc.py
+#
+# Copyright 2011 Nexenta Systems, Inc.
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as
@@ -15,47 +25,52 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Based upon example code from python-symmetric-jsonrpc:
-# Copyright (C) 2009 Egil Moeller <redhog@redhog.org>
-# Copyright (C) 2009 Nicklas Lindgren <nili@gulmohar.se>
-#
 # Copyright 2012, Andy Grover <agrover@redhat.com>
 #
 # Test client to exercise targetd.
+#
 
-import symmetricjsonrpc
+
 import sys
+import urllib2
+import json
 
-# Set up a TCP socket
-import socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+user = "foo"
+password = "bar"
+url = "http://localhost:18700/liorpc"
+id = 1
 
-#  Connect to the server
-s.connect(('localhost', 18700))
+def jsonrequest(method, params):
+    global id
+    data = json.dumps(dict(id=id, method=method, params=params, jsonrpc="2.0"))
+    id += 1
+    auth = ('%s:%s' % (user, password)).encode('base64')[:-1]
+    headers = {'Content-Type': 'application/json',
+               'Authorization': 'Basic %s' % (auth,)}
+    print('Sending JSON data: %s' % data)
+    request = urllib2.Request(url, data, headers)
+    response_obj = urllib2.urlopen(request)
+    if response_obj.info().status == 'EOF in headers':
+        if self.auto and self.url.startswith('http://'):
+            print('Auto switching to HTTPS connection to %s' % self.url)
+            self.url = 'https' + self.url[4:]
+            request = urllib2.Request(self.url, data, headers)
+            response_obj = urllib2.urlopen(request)
+        else:
+            print('No headers in server response')
+            raise Exception('Bad response from server')
 
-# Create a client thread handling for incoming requests
-client = symmetricjsonrpc.RPCClient(s)
-
-# Call a method on the server
-res = client.request("volumes", wait_for_response=True)
-print "client.volumes => %s" % res
-
-# Call a second method on the server
-try:
-    res = client.request("destroy", params=dict(name="test4"), wait_for_response=True)
-    print "client.destroy => %s" % res
-except Exception, e:
-    print "Exception:", e
-
-# Call a third method on the server
-try:
-    res = client.request("create", params=dict(name="test4", size=20000000), wait_for_response=True)
-    print "client.create => %s" % res
-except Exception, e:
-    print "Exception:", e
+    response_data = response_obj.read()
+    print('Got response: %s' % response_data)
+    response = json.loads(response_data)
+    if response.get('error') is not None:
+        raise Exception(response['error'].get('message', ''))
+    else:
+        return response.get('result')
 
 
-# Notify server it can shut down
-client.notify("shutdown")
+jsonrequest("volumes", None)
 
-client.shutdown()
+#jsonrequest("create", dict(name="test6", size=20000000))
+#jsonrequest("destroy", dict(name="test6"))
+
