@@ -78,10 +78,16 @@ def destroy(name):
         lvs[0].remove()
         print "LV %s removed" % name
 
+def pools():
+    with vgopen() as vg:
+        # only support 1 vg for now
+        return [dict(name=vg_name, size=vg.getSize(), free_size=vg.getFreeSize())]
+
 mapping = dict(
     volumes=volumes,
     create=create,
     destroy=destroy,
+    pool_list=pools,
     )
 
 class TargetHandler(BaseHTTPRequestHandler):
