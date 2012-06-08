@@ -86,7 +86,7 @@ mapping = dict(
     destroy=destroy,
     )
 
-class LIOHandler(BaseHTTPRequestHandler):
+class TargetHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
 
@@ -103,7 +103,7 @@ class LIOHandler(BaseHTTPRequestHandler):
             self.send_error(401)
             return
 
-        if not self.path == "/liorpc":
+        if not self.path == "/targetrpc":
             self.send_error(404)
             return
 
@@ -152,7 +152,7 @@ class LIOHandler(BaseHTTPRequestHandler):
 
 
 try:
-    server = HTTPServer(('', 18700), LIOHandler)
+    server = HTTPServer(('', 18700), TargetHandler)
     print "started server"
     server.serve_forever()
 except KeyboardInterrupt:

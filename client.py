@@ -37,7 +37,7 @@ import json
 
 user = "foo"
 password = "bar"
-url = "http://localhost:18700/liorpc"
+url = "http://localhost:18700/targetrpc"
 id = 1
 
 def jsonrequest(method, params):
