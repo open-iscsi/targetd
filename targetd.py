@@ -22,10 +22,8 @@
 # A server that exposes a network interface for the LIO
 # kernel target.
 
-import sys
 import contextlib
 import setproctitle
-import signal
 import rtslib
 import lvm
 import json
