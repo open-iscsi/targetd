@@ -84,9 +84,9 @@ def pools():
         return [dict(name=vg_name, size=vg.getSize(), free_size=vg.getFreeSize())]
 
 mapping = dict(
-    volumes=volumes,
-    create=create,
-    destroy=destroy,
+    vol_list=volumes,
+    vol_create=create,
+    vol_destroy=destroy,
     pool_list=pools,
     )
 
