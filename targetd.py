@@ -24,6 +24,7 @@ import rtslib
 import lvm
 import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+from SocketServer import ThreadingMixin
 
 setproctitle.setproctitle("targetd")
 
@@ -151,8 +152,11 @@ class TargetHandler(BaseHTTPRequestHandler):
             self.wfile.close()
 
 
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle requests in a separate thread."""
+
 try:
-    server = HTTPServer(('', 18700), TargetHandler)
+    server = ThreadedHTTPServer(('', 18700), TargetHandler)
     print "started server"
     server.serve_forever()
 except KeyboardInterrupt:
