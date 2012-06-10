@@ -13,10 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Based upon example code from python-symmetric-jsonrpc:
-# Copyright (C) 2009 Egil Moeller <redhog@redhog.org>
-# Copyright (C) 2009 Nicklas Lindgren <nili@gulmohar.se>
-#
 # Copyright 2012, Andy Grover <agrover@redhat.com>
 #
 # A server that exposes a network interface for the LIO
