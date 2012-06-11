@@ -154,6 +154,9 @@ class TargetHandler(BaseHTTPRequestHandler):
             except KeyError:
                 error = (-32601, "method %s not found" % method)
                 raise
+            except TypeError:
+                error = (-32602, "invalid method parameter(s)")
+                raise
 
             rpcdata = json.dumps(dict(result=result, id=id))
 
