@@ -24,7 +24,7 @@ import rtslib
 import lvm
 import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from SocketServer import ThreadingMixin
+from SocketServer import ThreadingMixIn
 
 setproctitle.setproctitle("targetd")
 
