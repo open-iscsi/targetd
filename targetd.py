@@ -18,6 +18,7 @@
 # A server that exposes a network interface for the LIO
 # kernel target.
 
+import os
 import contextlib
 import setproctitle
 import rtslib
@@ -28,18 +29,29 @@ from SocketServer import ThreadingMixIn
 
 setproctitle.setproctitle("targetd")
 
-# TODO: read config file
+config_path = "/etc/target/targetd.json"
+
+default_config = dict(
+    pool_name = "test",
+    user = "foo",
+    password = "bar",
+    ssl = False,
+)
+
+config = {}
+if os.path.isfile(config_path):
+    with open(config_path) as f:
+        config = json.loads(f.read())
+
+for key, value in default_config.iteritems():
+    if key not in config:
+        config[key] = value
 
 root = rtslib.RTSRoot()
 
-vg_name = "test"
-
-user = "foo"
-password = "bar"
-
 # fail early if can't access vg
 lvm_handle = lvm.Liblvm()
-test_vg = lvm_handle.vgOpen(vg_name, "w")
+test_vg = lvm_handle.vgOpen(config['pool_name'], "w")
 test_vg.close()
 lvm_handle.close()
 
@@ -51,7 +63,7 @@ lvm_handle.close()
 @contextlib.contextmanager
 def vgopen():
     with contextlib.closing(lvm.Liblvm()) as lvm_handle:
-        with contextlib.closing(lvm_handle.vgOpen(vg_name, "w")) as vg:
+        with contextlib.closing(lvm_handle.vgOpen(config['pool_name'], "w")) as vg:
             yield vg
 
 def volumes():
@@ -78,7 +90,7 @@ def destroy(name):
 def pools():
     with vgopen() as vg:
         # only support 1 vg for now
-        return [dict(name=vg_name, size=vg.getSize(), free_size=vg.getFreeSize())]
+        return [dict(name=vg.getName(), size=vg.getSize(), free_size=vg.getFreeSize())]
 
 mapping = dict(
     vol_list=volumes,
@@ -100,7 +112,7 @@ class TargetHandler(BaseHTTPRequestHandler):
             self.send_error(400)
             return
 
-        if in_user != user or in_pass != password:
+        if in_user != config['user'] or in_pass != config['password']:
             self.send_error(401)
             return
 
