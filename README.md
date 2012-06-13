@@ -27,6 +27,8 @@ targetd has these Python library dependencies:
 
 All of these are available in Fedora Rawhide.
 
+Installing the targetcli package is also highly recommended.
+
 ### Configuring targetd
 
 targetd defaults to using the "test" volume group, and username 'foo'
