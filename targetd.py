@@ -21,7 +21,8 @@
 import os
 import contextlib
 import setproctitle
-import rtslib
+from rtslib import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
+                    NetworkPortal, LUN, MappedLUN, RTSLibError)
 import lvm
 import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
@@ -49,7 +50,6 @@ for key, value in default_config.iteritems():
     if key not in config:
         config[key] = value
 
-root = rtslib.RTSRoot()
 
 # fail early if can't access vg
 lvm_handle = lvm.Liblvm()
@@ -94,11 +94,46 @@ def pools():
         # only support 1 vg for now
         return [dict(name=vg.getName(), size=vg.getSize(), free_size=vg.getFreeSize())]
 
+def export_to_initiator(vol_name, initiator_wwn, lun):
+    # only add new SO if it doesn't exist
+    try:
+        so = BlockStorageObject(vol_name)
+    except RTSLibError:
+        so = BlockStorageObject(vol_name, dev="/dev/%s/%s" %
+                                (config['pool_name'], vol_name))
+
+    so = BlockStorageObject(vol_name)
+    fm = FabricModule('iscsi')
+    t = Target(fm, config['target_name'])
+    tpg = TPG(t, 1)
+    tpg.enable = True
+    tpg.set_attribute("authentication", 0)
+    np = NetworkPortal(tpg, "0.0.0.0")
+    na = NodeACL(tpg, initiator_wwn)
+
+    # only add tpg lun if it doesn't exist
+    for tmp_lun in tpg.luns:
+        if tmp_lun.storage_object.name == so.name \
+                and tmp_lun.storage_object.plugin == 'block':
+            tpg_lun = tmp_lun
+            break
+    else:
+        tpg_lun = LUN(tpg, storage_object=so)
+
+    # only add mapped lun if it doesn't exist
+    for tmp_mlun in tpg_lun.mapped_luns:
+        if tmp_mlun.mapped_lun == lun:
+            mapped_lun = tmp_mlun
+            break
+    else:
+        mapped_lun = MappedLUN(na, lun, tpg_lun)
+
 mapping = dict(
     vol_list=volumes,
     vol_create=create,
     vol_destroy=destroy,
     pool_list=pools,
+    export_to_initiator=export_to_initiator,
     )
 
 class TargetHandler(BaseHTTPRequestHandler):
