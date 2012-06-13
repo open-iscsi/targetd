@@ -10,17 +10,17 @@ over iSCSI.
 
 Current Status
 --------------
-targetd is pre-alpha, and contributors are welcome! It is licensed
+targetd is pre-alpha, and contributions are welcome! It is licensed
 under the GPLv3. Please use target-devel@vger.kernel.org for
-discussion. Source control and bug tracking is at
+discussion. Source repo and bug tracking is at
 https://github.com/agrover/targetd.
 
 Getting Started
 ---------------
 targetd has these Python library dependencies:
-* python-rtslib 2.1.fb14+  (must be fb*)
-* python-lvm 1.2.2+
-* python-setproctitle 1.1.3+
+* [python-rtslib](https://github.com/agrover/rtslib-fb) 2.1.fb14+  (must be fb*)
+* [python-lvm](https://github.com/agrover/python-lvm) 1.2.2+
+* [python-setproctitle](https://github.com/dvarrazzo/py-setproctitle)
 
 All of these are available in Fedora Rawhide.
 
