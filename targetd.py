@@ -82,6 +82,13 @@ def create(name, size):
         print "LV %s created, size %s" % (name, lv.getSize())
 
 def destroy(name):
+    fm = FabricModule('iscsi')
+    t = Target(fm, config['target_name'])
+    tpg = TPG(t, 1)
+
+    if name in (lun.storage_object.name for lun in tpg.luns):
+        raise ValueError("Volume '%s' cannot be removed while exported")
+
     with vgopen() as vg:
         lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
         if not len(lvs) == 1:
