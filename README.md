@@ -44,3 +44,4 @@ defaults may be placed in `/etc/target/targetd.json`:
 
 Then, run `sudo ./targetd.py`.
 
+client.py is a basic testing script, to get started making API calls.
