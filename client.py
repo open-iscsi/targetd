@@ -40,7 +40,7 @@ password = "bar"
 url = "http://localhost:18700/targetrpc"
 id = 1
 
-def jsonrequest(method, params):
+def jsonrequest(method, params=None):
     global id
     data = json.dumps(dict(id=id, method=method, params=params, jsonrpc="2.0"))
     id += 1
@@ -69,7 +69,7 @@ def jsonrequest(method, params):
         return response.get('result')
 
 
-jsonrequest("volumes", None)
+jsonrequest("export_to_initiator", dict(vol_name="test5", lun=5, initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
 #jsonrequest("create", dict(name="test6", size=20000000))
 #jsonrequest("destroy", dict(name="test6"))
