@@ -95,7 +95,7 @@ def destroy(name):
     with vgopen() as vg:
         lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
         if not len(lvs) == 1:
-            raise LookupError("lv not found")
+            raise LookupError("Volume '%s' not found" % name)
         lvs[0].remove()
         print "LV %s removed" % name
 
