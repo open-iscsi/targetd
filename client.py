@@ -69,7 +69,11 @@ def jsonrequest(method, params=None):
         return response.get('result')
 
 
-jsonrequest("export_to_initiator", dict(vol_name="test5", lun=5, initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+jsonrequest("export_list")
+
+jsonrequest("export_destroy", dict(vol_name="test5", initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+
+#jsonrequest("export_create", dict(vol_name="test5", lun=5, initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
 #jsonrequest("create", dict(name="test6", size=20000000))
 #jsonrequest("destroy", dict(name="test6"))
