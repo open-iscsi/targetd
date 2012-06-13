@@ -43,8 +43,11 @@ default_config = dict(
 
 config = {}
 if os.path.isfile(config_path):
-    with open(config_path) as f:
-        config = json.loads(f.read())
+    jsontxt=""
+    for f in open(config_path):
+        if not f.lstrip().startswith("#"):
+            jsontxt += f
+    config = json.loads(jsontxt)
 
 for key, value in default_config.iteritems():
     if key not in config:
