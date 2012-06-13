@@ -89,10 +89,17 @@ def destroy(name):
         lvs[0].remove()
         print "LV %s removed" % name
 
-def pools():
-    with vgopen() as vg:
-        # only support 1 vg for now
-        return [dict(name=vg.getName(), size=vg.getSize(), free_size=vg.getFreeSize())]
+def export_list():
+    fm = FabricModule('iscsi')
+    t = Target(fm, config['target_name'])
+    tpg = TPG(t, 1)
+
+    exports = []
+    for na in tpg.node_acls:
+        for mlun in na.mapped_luns:
+            exports.append(dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
+                                vol=mlun.tpg_lun.storage_object.name))
+    return exports
 
 def export_to_initiator(vol_name, initiator_wwn, lun):
     # only add new SO if it doesn't exist
@@ -128,12 +135,40 @@ def export_to_initiator(vol_name, initiator_wwn, lun):
     else:
         mapped_lun = MappedLUN(na, lun, tpg_lun)
 
+def remove_export(vol_name, initiator_wwn):
+    fm = FabricModule('iscsi')
+    t = Target(fm, config['target_name'])
+    tpg = TPG(t, 1)
+    na = NodeACL(tpg, initiator_wwn)
+
+    for mlun in na.mapped_luns:
+        if mlun.tpg_lun.storage_object.name == vol_name:
+            tpg_lun = mlun.tpg_lun
+            mlun.delete()
+            # be tidy and delete unused tpg lun mappings?
+            if not len(list(tpg_lun.mapped_luns)):
+                tpg_lun.delete()
+            break
+    else:
+        raise LookupError("Volume '%s' not found in %s exports" %
+                          (vol_name, initiator_wwn))
+
+    # TODO: clean up NodeACLs w/o any exports as well?
+
+def pools():
+    with vgopen() as vg:
+        # only support 1 vg for now
+        return [dict(name=vg.getName(), size=vg.getSize(), free_size=vg.getFreeSize())]
+
+
 mapping = dict(
     vol_list=volumes,
     vol_create=create,
     vol_destroy=destroy,
+    export_list=export_list,
+    export_create=export_to_initiator,
+    export_destroy=remove_export,
     pool_list=pools,
-    export_to_initiator=export_to_initiator,
     )
 
 class TargetHandler(BaseHTTPRequestHandler):
