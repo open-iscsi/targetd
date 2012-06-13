@@ -15,6 +15,9 @@ under the GPLv3. Please use target-devel@vger.kernel.org for
 discussion. Source repo and bug tracking is at
 https://github.com/agrover/targetd.
 
+**NOTE: targetd is PRE-ALPHA, STORAGE-RELATED software. Do NOT use
+  around valuable data!**
+
 Getting Started
 ---------------
 targetd has these Python library dependencies:
