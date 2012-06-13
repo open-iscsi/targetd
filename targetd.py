@@ -26,6 +26,7 @@ import lvm
 import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
+import socket
 
 setproctitle.setproctitle("targetd")
 
@@ -36,6 +37,7 @@ default_config = dict(
     user = "foo",
     password = "bar",
     ssl = False,
+    target_name = "iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname()
 )
 
 config = {}
