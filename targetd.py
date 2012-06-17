@@ -90,7 +90,7 @@ def destroy(name):
     tpg = TPG(t, 1)
 
     if name in (lun.storage_object.name for lun in tpg.luns):
-        raise ValueError("Volume '%s' cannot be removed while exported")
+        raise ValueError("Volume '%s' cannot be removed while exported" % name)
 
     with vgopen() as vg:
         lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
