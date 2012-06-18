@@ -38,9 +38,12 @@ import json
 user = "foo"
 password = "bar"
 url = "http://localhost:18700/targetrpc"
+host = 'localhost'
+port = 18700
+path = '/targetrpc'
 id = 1
 
-def jsonrequest(method, params=None):
+def jsonrequest(method, params=None, ssl=False):
     global id
     data = json.dumps(dict(id=id, method=method, params=params, jsonrpc="2.0"))
     id += 1
@@ -48,18 +51,13 @@ def jsonrequest(method, params=None):
     headers = {'Content-Type': 'application/json',
                'Authorization': 'Basic %s' % (auth,)}
     print('Sending JSON data: %s' % data)
+    if ssl:
+        scheme = 'https'
+    else:
+        scheme = 'http'
+    url = "%s://%s:%s%s" % (scheme, host, port, path)
     request = urllib2.Request(url, data, headers)
     response_obj = urllib2.urlopen(request)
-    if response_obj.info().status == 'EOF in headers':
-        if self.auto and self.url.startswith('http://'):
-            print('Auto switching to HTTPS connection to %s' % self.url)
-            self.url = 'https' + self.url[4:]
-            request = urllib2.Request(self.url, data, headers)
-            response_obj = urllib2.urlopen(request)
-        else:
-            print('No headers in server response')
-            raise Exception('Bad response from server')
-
     response_data = response_obj.read()
     print('Got response: %s' % response_data)
     response = json.loads(response_data)
@@ -69,9 +67,18 @@ def jsonrequest(method, params=None):
         return response.get('result')
 
 
-jsonrequest("export_list")
+jsonrequest("vol_list", ssl=True)
 
-jsonrequest("export_destroy", dict(vol_name="test5", initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+print "+"*20
+
+#jsonrequest("vol_copy", dict(vol_orig="test5", vol_new="test5-copy2"))
+
+#print "+"*20
+
+#jsonrequest("vol_list")
+
+
+#jsonrequest("export_destroy", dict(vol_name="test5", initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
 #jsonrequest("export_create", dict(vol_name="test5", lun=5, initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
