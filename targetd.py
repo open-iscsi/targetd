@@ -99,6 +99,34 @@ def destroy(name):
         lvs[0].remove()
         print "LV %s removed" % name
 
+def copy(vol_orig, vol_new):
+    """
+    Create a new volume that is a copy of an existing one.
+    This operation may be lengthy.
+    """
+    with vgopen() as vg:
+        orig_lv = [lv for lv in vg.listLVs() if lv.getName() == vol_orig][0]
+
+    copy_size = orig_lv.getSize()
+    create(vol_new, copy_size)
+    try:
+        src_path = "/dev/%s/%s" % (config['pool_name'], vol_orig)
+        dst_path = "/dev/%s/%s" % (config['pool_name'], vol_new)
+
+        with open(src_path, 'rb') as fsrc:
+            with open(dst_path, 'wb') as fdst:
+                copied = 0
+                while copied != copy_size:
+                    buf = fsrc.read(1024*1024)
+                    if not buf:
+                        break
+                    fdst.write(buf)
+                    copied += len(buf)
+
+    except:
+        destroy(vol_new)
+        raise
+
 def export_list():
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
@@ -175,6 +203,7 @@ mapping = dict(
     vol_list=volumes,
     vol_create=create,
     vol_destroy=destroy,
+    vol_copy=copy,
     export_list=export_list,
     export_create=export_to_initiator,
     export_destroy=remove_export,
