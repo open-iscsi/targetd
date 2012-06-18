@@ -24,6 +24,7 @@ targetd has these Python library dependencies:
 * [python-rtslib](https://github.com/agrover/rtslib-fb) 2.1.fb14+  (must be fb*)
 * [python-lvm](https://github.com/agrover/python-lvm) 1.2.2+
 * [python-setproctitle](https://github.com/dvarrazzo/py-setproctitle)
+* [PyYAML](http://pyyaml.org/)
 
 All of these are available in Fedora Rawhide.
 
@@ -31,18 +32,18 @@ Installing the targetcli package is also highly recommended.
 
 ### Configuring targetd
 
-targetd defaults to using the "test" volume group, and username 'foo'
-password 'bar' for the HTTP jsonrpc interface. Overrides to these
-defaults may be placed in `/etc/target/targetd.json`:
+A configuration file may be placed at `/etc/target/targetd.yaml`, and
+is in [YAML](http://www.yaml.org/spec/1.2/spec.html) format. Here's
+an example:
 
-    {
-        # this is a comment. comments must be on their own line.
-        "pool_name" : "test",
-        "user" : "foo",
-        "password" : "bar",
-        "ssl" : false,
-        "target_name" : "iqn.2003-01.org.example.mach1:1234"
-    }
+    pool_name: test
+    user: "foo" # strings quoted, or not
+    password: bar
+    ssl: false
+    target_name: iqn.2003-01.org.example.mach1:1234
+
+targetd defaults to using the "test" volume group, and username 'foo'
+password 'bar' for the HTTP jsonrpc interface.
 
 Then, run `sudo ./targetd.py`.
 

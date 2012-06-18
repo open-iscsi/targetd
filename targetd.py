@@ -28,10 +28,11 @@ import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 import socket
+import yaml
 
 setproctitle.setproctitle("targetd")
 
-config_path = "/etc/target/targetd.json"
+config_path = "/etc/target/targetd.yaml"
 
 default_config = dict(
     pool_name = "test",
@@ -43,11 +44,7 @@ default_config = dict(
 
 config = {}
 if os.path.isfile(config_path):
-    jsontxt=""
-    for f in open(config_path):
-        if not f.lstrip().startswith("#"):
-            jsontxt += f
-    config = json.loads(jsontxt)
+    config = yaml.load(open(config_path).read())
 
 for key, value in default_config.iteritems():
     if key not in config:
