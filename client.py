@@ -34,6 +34,7 @@
 import sys
 import urllib2
 import json
+import time
 
 user = "foo"
 password = "bar"
@@ -50,7 +51,7 @@ def jsonrequest(method, params=None, ssl=False):
     auth = ('%s:%s' % (user, password)).encode('base64')[:-1]
     headers = {'Content-Type': 'application/json',
                'Authorization': 'Basic %s' % (auth,)}
-    print('Sending JSON data: %s' % data)
+    #print('Sending JSON data: %s' % data)
     if ssl:
         scheme = 'https'
     else:
@@ -59,23 +60,47 @@ def jsonrequest(method, params=None, ssl=False):
     request = urllib2.Request(url, data, headers)
     response_obj = urllib2.urlopen(request)
     response_data = response_obj.read()
-    print('Got response: %s' % response_data)
+    #print('Got response: %s' % response_data)
     response = json.loads(response_data)
     if response.get('error') is not None:
-        raise Exception(response['error'].get('message', ''))
+        if response['error']['code'] <= 0:
+            raise Exception(response['error'].get('message', ''))
+        else: # +code is async execution id
+            print "Async completion, polling for results"
+            async_code = response['error']['code']
+            while True:
+                time.sleep(1)
+                results = jsonrequest('async_list')
+                status = results.get(str(async_code), None)
+                if status:
+                    if status[0]:
+                        print "%d has error %d" % (async_code, status[0])
+                        break
+                    else:
+                        print "%d still going, %d%% complete" % \
+                            (async_code, status[1])
+                else:
+                    print "%s done" % async_code
+                    break
     else:
         return response.get('result')
 
 
-jsonrequest("vol_list", ssl=True)
-
-print "+"*20
-
-#jsonrequest("vol_copy", dict(vol_orig="test5", vol_new="test5-copy2"))
+results = jsonrequest("vol_list")
+for result in results:
+    print result['name'], result['size']
 
 #print "+"*20
+#jsonrequest('vol_create', dict(name="test2", size=400000000))
 
-#jsonrequest("vol_list")
+#print "+"*20
+#jsonrequest("vol_destroy", dict(name="test2-copy"))
+
+print "+"*20
+jsonrequest("vol_copy", dict(vol_orig="test2", vol_new="test2-copy"))
+
+print "+"*20
+jsonrequest("vol_destroy", dict(name="test2-copy"))
 
 
 #jsonrequest("export_destroy", dict(vol_name="test5", initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
