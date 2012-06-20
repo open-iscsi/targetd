@@ -28,7 +28,9 @@ import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 import socket
+from threading import Lock
 import yaml
+import time
 
 setproctitle.setproctitle("targetd")
 
@@ -68,7 +70,7 @@ def vgopen():
         with contextlib.closing(lvm_handle.vgOpen(config['pool_name'], "w")) as vg:
             yield vg
 
-def volumes():
+def volumes(req):
     output = []
     with vgopen() as vg:
         for lv in vg.listLVs():
@@ -76,12 +78,12 @@ def volumes():
                                uuid=lv.getUuid()))
     return output
 
-def create(name, size):
+def create(req, name, size):
     with vgopen() as vg:
         lv = vg.createLvLinear(name, int(size))
         print "LV %s created, size %s" % (name, lv.getSize())
 
-def destroy(name):
+def destroy(req, name):
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
     tpg = TPG(t, 1)
@@ -96,20 +98,22 @@ def destroy(name):
         lvs[0].remove()
         print "LV %s removed" % name
 
-def copy(vol_orig, vol_new):
+def copy(req, vol_orig, vol_new, timeout=10):
     """
     Create a new volume that is a copy of an existing one.
-    This operation may be lengthy.
+    If this operation takes longer than the timeout, it will return
+    an async completion and report actual status via async_complete().
     """
     with vgopen() as vg:
         orig_lv = [lv for lv in vg.listLVs() if lv.getName() == vol_orig][0]
 
     copy_size = orig_lv.getSize()
-    create(vol_new, copy_size)
+    create(req, vol_new, copy_size)
     try:
         src_path = "/dev/%s/%s" % (config['pool_name'], vol_orig)
         dst_path = "/dev/%s/%s" % (config['pool_name'], vol_new)
 
+        start_time = time.clock()
         with open(src_path, 'rb') as fsrc:
             with open(dst_path, 'wb') as fdst:
                 copied = 0
@@ -119,12 +123,16 @@ def copy(vol_orig, vol_new):
                         break
                     fdst.write(buf)
                     copied += len(buf)
+                    if time.clock() > (start_time + timeout):
+                        req.async_completion()
+                        async_status(req, 0, int((float(copied)/copy_size)*100))
+        complete_if_async(req, 0)
 
     except:
-        destroy(vol_new)
+        destroy(req, vol_new)
         raise
 
-def export_list():
+def export_list(req):
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
     tpg = TPG(t, 1)
@@ -136,7 +144,7 @@ def export_list():
                                 vol=mlun.tpg_lun.storage_object.name))
     return exports
 
-def export_to_initiator(vol_name, initiator_wwn, lun):
+def export_to_initiator(req, vol_name, initiator_wwn, lun):
     # only add new SO if it doesn't exist
     try:
         so = BlockStorageObject(vol_name)
@@ -170,7 +178,7 @@ def export_to_initiator(vol_name, initiator_wwn, lun):
     else:
         mapped_lun = MappedLUN(na, lun, tpg_lun)
 
-def remove_export(vol_name, initiator_wwn):
+def remove_export(req, vol_name, initiator_wwn):
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
     tpg = TPG(t, 1)
@@ -190,10 +198,55 @@ def remove_export(vol_name, initiator_wwn):
 
     # TODO: clean up NodeACLs w/o any exports as well?
 
-def pools():
+def pools(req):
     with vgopen() as vg:
         # only support 1 vg for now
         return [dict(name=vg.getName(), size=vg.getSize(), free_size=vg.getFreeSize())]
+
+def async_list(req, clear=False):
+    '''
+    Return a list of ongoing processes
+    To prevent deadlock, this method should never be deferred
+    '''
+    with long_op_status_lock:
+        status_dict = long_op_status.copy()
+        if clear:
+            long_op_status.clear()
+    return status_dict
+
+
+async_id_lock = Lock()
+async_id = 100
+
+def new_async_id():
+    global async_id
+    with async_id_lock:
+        new_id = async_id
+        async_id += 1
+    return new_id
+
+# Long-running threads update their progress here
+long_op_status_lock = Lock()
+# async_id -> (code, pct_complete)
+long_op_status = dict()
+
+def async_status(req, code, pct_complete=None):
+    '''
+    update a global array with status of ongoing ops.
+    code: 0 if ok
+    pct_complete: percent complete, integer 0-100
+    '''
+    with long_op_status_lock:
+        long_op_status[req.async_id] = (code, pct_complete)
+
+def complete_if_async(req, code):
+    '''
+    Ongoing op is done, remove status if succeeded
+    '''
+    if req.async_id:
+        with long_op_status_lock:
+            if not code:
+                del long_op_status[req.async_id]
 
 
 mapping = dict(
@@ -205,11 +258,15 @@ mapping = dict(
     export_create=export_to_initiator,
     export_destroy=remove_export,
     pool_list=pools,
+    async_list=async_list,
     )
+
 
 class TargetHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
+
+        self.async_id = None
 
         # get basic auth string, strip "Basic "
         # TODO: add SSL/TLS, or this is not secure
@@ -230,7 +287,7 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         try:
             error = (-1, "jsonrpc error")
-            id = None
+            self.id = None
             try:
                 content_len = int(self.headers.getheader('content-length'))
                 req = json.loads(self.rfile.read(content_len))
@@ -248,7 +305,7 @@ class TargetHandler(BaseHTTPRequestHandler):
                 if version != "2.0":
                     raise ValueError
                 method = req['method']
-                id = req['id']
+                self.id = int(req['id'])
                 params = req.get('params', None)
             except (KeyError, ValueError):
                 error = (-32600, "not a valid jsonrpc-2.0 request")
@@ -256,9 +313,9 @@ class TargetHandler(BaseHTTPRequestHandler):
 
             try:
                 if params:
-                    result = mapping[method](**params)
+                    result = mapping[method](self, **params)
                 else:
-                    result = mapping[method]()
+                    result = mapping[method](self)
             except KeyError:
                 error = (-32601, "method %s not found" % method)
                 raise
@@ -269,13 +326,25 @@ class TargetHandler(BaseHTTPRequestHandler):
                 error = (-1, "%s: %s" % (type(e).__name__, e))
                 raise
 
-            rpcdata = json.dumps(dict(result=result, id=id))
+            rpcdata = json.dumps(dict(result=result, id=self.id))
 
-        except Exception, e:
-            rpcdata = json.dumps(dict(error=dict(code=error[0], message=error[1]), id=id))
+        except:
+            rpcdata = json.dumps(dict(error=dict(code=error[0], message=error[1]), id=self.id))
+            raise
+
         finally:
+            if not self.async_id:
+                self.wfile.write(rpcdata)
+                self.wfile.close()
+
+    def async_completion(self):
+        if not self.async_id:
+            self.async_id = new_async_id()
+            rpcdata = json.dumps(dict(error=dict(code=self.async_id, message="Async Operation"), id=self.id))
             self.wfile.write(rpcdata)
             self.wfile.close()
+            # wfile is buffered, need to do this to flush the response
+            self.connection.shutdown(socket.SHUT_WR)
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
