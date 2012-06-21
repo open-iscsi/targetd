@@ -11,7 +11,7 @@ but does authentication via HTTP Basic auth.
 Entities
 --------
 Raw storage space on the host is a `pool`. From a pool, a volume
-(`vol`) is allocated. A volume is shared with remote hosts via an
+`vol` is allocated. A volume is shared with remote hosts via an
 `export`. Finally, long-running API calls may return before processing
 is complete, and if so will supply an `async` id, which the caller may
 use to check the status of the operation.
@@ -57,10 +57,11 @@ data, and the data in the volume is lost even if another volume with
 the same name is created.
 
 ### vol_copy(pool, vol_orig, vol_new)
-*ASYNC*
+_ASYNC_
+
 Creates a new volume named `vol_new` in `pool` the same size as
 `vol_orig` in `pool`, and copies the contents from `vol_orig` into
-`vol_new`.
+`vol_new`. `vol_orig` and `vol_new` will have differing UUIDs.
 
 Export operations
 -----------------
