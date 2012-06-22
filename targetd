@@ -218,15 +218,16 @@ def pools(req):
         # only support 1 vg for now
         return [dict(name=vg.getName(), size=vg.getSize(), free_size=vg.getFreeSize())]
 
-def async_list(req, clear=False):
+def async_list(req):
     '''
-    Return a list of ongoing processes
-    To prevent deadlock, this method should never be deferred
+    Return a list of ongoing processes. Processes that have terminated with an
+    error are returned once and then delisted.
     '''
     with long_op_status_lock:
         status_dict = long_op_status.copy()
-        if clear:
-            long_op_status.clear()
+        for key, item in long_op_status:
+            if item[0] > 0:
+                del long_op_status[key]
     return status_dict
 
 
@@ -248,7 +249,7 @@ long_op_status = dict()
 def async_status(req, code, pct_complete=None):
     '''
     update a global array with status of ongoing ops.
-    code: 0 if ok
+    code: 0 if ok, or -err
     pct_complete: percent complete, integer 0-100
     '''
     with long_op_status_lock:
