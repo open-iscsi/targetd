@@ -65,25 +65,35 @@ lvm_handle.close()
 # getting vg in each method and calls close() on vg and lvm objs.
 #
 @contextlib.contextmanager
-def vgopen():
+def vgopen(pool_name):
+    pool_check(pool_name)
     with contextlib.closing(lvm.Liblvm()) as lvm_handle:
-        with contextlib.closing(lvm_handle.vgOpen(config['pool_name'], "w")) as vg:
+        with contextlib.closing(lvm_handle.vgOpen(pool_name, "w")) as vg:
             yield vg
 
-def volumes(req):
+def pool_check(pool_name):
+    '''
+    pool_name *cannot* be trusted, funcs taking a pool param must call
+    this or vgopen() to ensure passed-in pool name is one targetd has
+    been configured to use.
+    '''
+    if pool_name != config['pool_name']:
+        raise IOError("Invalid pool name")
+
+def volumes(req, pool):
     output = []
-    with vgopen() as vg:
+    with vgopen(pool) as vg:
         for lv in vg.listLVs():
             output.append(dict(name=lv.getName(), size=lv.getSize(),
                                uuid=lv.getUuid()))
     return output
 
-def create(req, name, size):
-    with vgopen() as vg:
+def create(req, pool, name, size):
+    with vgopen(pool) as vg:
         lv = vg.createLvLinear(name, int(size))
         print "LV %s created, size %s" % (name, lv.getSize())
 
-def destroy(req, name):
+def destroy(req, pool, name):
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
     tpg = TPG(t, 1)
@@ -91,27 +101,27 @@ def destroy(req, name):
     if name in (lun.storage_object.name for lun in tpg.luns):
         raise ValueError("Volume '%s' cannot be removed while exported" % name)
 
-    with vgopen() as vg:
+    with vgopen(pool) as vg:
         lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
         if not len(lvs) == 1:
             raise LookupError("Volume '%s' not found" % name)
         lvs[0].remove()
         print "LV %s removed" % name
 
-def copy(req, vol_orig, vol_new, timeout=10):
+def copy(req, pool, vol_orig, vol_new, timeout=10):
     """
     Create a new volume that is a copy of an existing one.
     If this operation takes longer than the timeout, it will return
     an async completion and report actual status via async_complete().
     """
-    with vgopen() as vg:
+    with vgopen(pool) as vg:
         orig_lv = [lv for lv in vg.listLVs() if lv.getName() == vol_orig][0]
 
     copy_size = orig_lv.getSize()
-    create(req, vol_new, copy_size)
+    create(req, pool, vol_new, copy_size)
     try:
-        src_path = "/dev/%s/%s" % (config['pool_name'], vol_orig)
-        dst_path = "/dev/%s/%s" % (config['pool_name'], vol_new)
+        src_path = "/dev/%s/%s" % (pool, vol_orig)
+        dst_path = "/dev/%s/%s" % (pool, vol_new)
 
         start_time = time.clock()
         with open(src_path, 'rb') as fsrc:
@@ -141,16 +151,17 @@ def export_list(req):
     for na in tpg.node_acls:
         for mlun in na.mapped_luns:
             exports.append(dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
-                                vol=mlun.tpg_lun.storage_object.name))
+                                vol=mlun.tpg_lun.storage_object.name,
+                                pool=))
     return exports
 
-def export_to_initiator(req, vol_name, initiator_wwn, lun):
+def export_to_initiator(req, pool, vol, initiator_wwn, lun):
+    pool_check(pool)
     # only add new SO if it doesn't exist
     try:
-        so = BlockStorageObject(vol_name)
+        so = BlockStorageObject(vol)
     except RTSLibError:
-        so = BlockStorageObject(vol_name, dev="/dev/%s/%s" %
-                                (config['pool_name'], vol_name))
+        so = BlockStorageObject(vol, dev="/dev/%s/%s" % (pool, vol))
 
     so = BlockStorageObject(vol_name)
     fm = FabricModule('iscsi')
@@ -178,14 +189,18 @@ def export_to_initiator(req, vol_name, initiator_wwn, lun):
     else:
         mapped_lun = MappedLUN(na, lun, tpg_lun)
 
-def remove_export(req, vol_name, initiator_wwn):
+def remove_export(req, pool, vol, initiator_wwn):
+    pool_check(pool)
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
     tpg = TPG(t, 1)
     na = NodeACL(tpg, initiator_wwn)
 
     for mlun in na.mapped_luns:
-        if mlun.tpg_lun.storage_object.name == vol_name:
+        # all SOs are Block so we can access udev_path safely
+        mlun_vg, mlun_name = mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
+
+        if mlun_vg == pool and mlun_name == vol:
             tpg_lun = mlun.tpg_lun
             mlun.delete()
             # be tidy and delete unused tpg lun mappings?
@@ -194,12 +209,12 @@ def remove_export(req, vol_name, initiator_wwn):
             break
     else:
         raise LookupError("Volume '%s' not found in %s exports" %
-                          (vol_name, initiator_wwn))
+                          (vol, initiator_wwn))
 
     # TODO: clean up NodeACLs w/o any exports as well?
 
 def pools(req):
-    with vgopen() as vg:
+    with vgopen(config['pool_name']) as vg:
         # only support 1 vg for now
         return [dict(name=vg.getName(), size=vg.getSize(), free_size=vg.getFreeSize())]
 
