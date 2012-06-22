@@ -346,8 +346,6 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         except:
             rpcdata = json.dumps(dict(error=dict(code=error[0], message=error[1]), id=self.id))
-            raise
-
         finally:
             if not self.async_id:
                 self.wfile.write(rpcdata)
