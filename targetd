@@ -37,9 +37,9 @@ setproctitle.setproctitle("targetd")
 config_path = "/etc/target/targetd.yaml"
 
 default_config = dict(
-    pool_name = "test",
-    user = "foo",
-    password = "bar",
+    pool_name = "vg-targetd",
+    user = "admin",
+    password = "targetd",
     ssl = False,
     target_name = "iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname()
 )
