@@ -213,13 +213,26 @@ def export_destroy(req, pool, vol, initiator_wwn):
             mlun.delete()
             # be tidy and delete unused tpg lun mappings?
             if not len(list(tpg_lun.mapped_luns)):
+                so = tpg_lun.storage_object
                 tpg_lun.delete()
+                so.delete()
             break
     else:
         raise LookupError("Volume '%s' not found in %s exports" %
                           (vol, initiator_wwn))
 
-    # TODO: clean up NodeACLs w/o any exports as well?
+    # Clean up tree if branch has no leaf
+    if len(list(na.mapped_luns)):
+        return
+    na.delete()
+
+    if len(list(tpg.node_acls)):
+        return
+    tpg.delete()
+
+    if len(list(t.tpgs)):
+        return
+    t.delete()
 
 def pools(req):
     with vgopen(config['pool_name']) as vg:
