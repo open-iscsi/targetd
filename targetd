@@ -157,20 +157,21 @@ def export_list(req):
     exports = []
     for na in tpg.node_acls:
         for mlun in na.mapped_luns:
+            mlun_vg, mlun_name = mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
             exports.append(dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
-                                vol=mlun.tpg_lun.storage_object.name,
-                                pool=))
+                                vol=mlun_name, pool=mlun_vg))
     return exports
 
-def export_to_initiator(req, pool, vol, initiator_wwn, lun):
+def export_create(req, pool, vol, initiator_wwn, lun):
     pool_check(pool)
     # only add new SO if it doesn't exist
+    # so.name concats pool & vol names separated by ':'
+    so_name = "%s:%s" % (pool,vol)
     try:
-        so = BlockStorageObject(vol)
+        so = BlockStorageObject(so_name)
     except RTSLibError:
-        so = BlockStorageObject(vol, dev="/dev/%s/%s" % (pool, vol))
+        so = BlockStorageObject(so_name, dev="/dev/%s/%s" % (pool, vol))
 
-    so = BlockStorageObject(vol_name)
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
     tpg = TPG(t, 1)
@@ -196,7 +197,7 @@ def export_to_initiator(req, pool, vol, initiator_wwn, lun):
     else:
         mapped_lun = MappedLUN(na, lun, tpg_lun)
 
-def remove_export(req, pool, vol, initiator_wwn):
+def export_destroy(req, pool, vol, initiator_wwn):
     pool_check(pool)
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
@@ -278,8 +279,8 @@ mapping = dict(
     vol_destroy=destroy,
     vol_copy=copy,
     export_list=export_list,
-    export_create=export_to_initiator,
-    export_destroy=remove_export,
+    export_create=export_create,
+    export_destroy=export_destroy,
     pool_list=pools,
     async_list=async_list,
     )
