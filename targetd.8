@@ -1,0 +1,60 @@
+.TH targetd 8
+.SH NAME
+.B targetd
+.SH DESCRIPTION
+.B targetd
+is a service to allow the remote configuration of block device volumes
+within a pool, as well as exporting volumes to other hosts via iSCSI.
+.SH USAGE
+Run
+.B targetd
+as root.
+.SH CONFIGURATION
+.B targetd
+uses
+.B /etc/target/targetd.yaml
+for configuration. It is in YAML format.
+.B targetd
+currently only sets scalar values so all values are just
+.BR "<setting>: <value>" .
+.SS CONFIGURATION FILE SETTINGS
+.B pool_name
+.br
+Sets the LVM Volume Group that
+.B targetd
+will use to allocate volumes. Defaults to
+.BR "pool_name: vg-targetd" .
+.B targetd
+currently supports a single volume group only.
+.P
+.B user
+.br
+.B password
+.br
+Sets the username and password required to use the remote
+API. Defaults to 
+.B admin
+and
+.BR targetd ,
+respectively.
+.P
+.B target_name
+.br
+Sets the iSCSI target name that
+.B targetd
+will use. Default is
+.BR iqn.2003-01.org.linux-iscsi.<hostname>:targetd .
+.SH FILES
+.B /etc/target/targetd.yaml
+.SH SEE ALSO
+The remote API is defined at
+.br
+<https://github.com/agrover/targetd/blob/master/API.md>.
+
+targetcli(8), lvm(8), lsmcli(8)
+.SH AUTHOR
+Written by Andy Grover <agrover@redhat.com>.
+.SH REPORTING BUGS
+Report bugs via <target-devel@vger.kernel.org>
+.br
+or <https://github.com/agrover/targetd/issues>
