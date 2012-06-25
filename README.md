@@ -42,8 +42,8 @@ an example:
     ssl: false
     target_name: iqn.2003-01.org.example.mach1:1234
 
-targetd defaults to using the "test" volume group, and username 'foo'
-password 'bar' for the HTTP jsonrpc interface.
+targetd defaults to using the "vg-targetd" volume group, and username 'admin'
+password 'targetd' for the HTTP jsonrpc interface.
 
 Then, run `sudo ./targetd.py`.
 
