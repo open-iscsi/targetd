@@ -22,7 +22,7 @@ import os
 import contextlib
 import setproctitle
 from rtslib import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
-                    NetworkPortal, LUN, MappedLUN, RTSLibError)
+                    NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS)
 import lvm
 import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
@@ -94,12 +94,16 @@ def create(req, pool, name, size):
         print "LV %s created, size %s" % (name, lv.getSize())
 
 def destroy(req, pool, name):
-    fm = FabricModule('iscsi')
-    t = Target(fm, config['target_name'])
-    tpg = TPG(t, 1)
+    try:
+        fm = FabricModule('iscsi')
+        t = Target(fm, config['target_name'], mode='lookup')
+        tpg = TPG(t, 1, mode='lookup')
 
-    if name in (lun.storage_object.name for lun in tpg.luns):
-        raise ValueError("Volume '%s' cannot be removed while exported" % name)
+        so_name = "%s:%s" % (pool, name)
+        if so_name in (lun.storage_object.name for lun in tpg.luns):
+            raise ValueError("Volume '%s' cannot be removed while exported" % name)
+    except RTSLibNotInCFS:
+        pass
 
     with vgopen(pool) as vg:
         lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
@@ -143,9 +147,12 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
         raise
 
 def export_list(req):
-    fm = FabricModule('iscsi')
-    t = Target(fm, config['target_name'])
-    tpg = TPG(t, 1)
+    try:
+        fm = FabricModule('iscsi')
+        t = Target(fm, config['target_name'], mode='lookup')
+        tpg = TPG(t, 1, mode='lookup')
+    except RTSLibNotInCFS:
+        return []
 
     exports = []
     for na in tpg.node_acls:
