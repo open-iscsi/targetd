@@ -45,6 +45,7 @@ path = '/targetrpc'
 id = 1
 
 def jsonrequest(method, params=None, ssl=False):
+    print "+"*20
     global id
     data = json.dumps(dict(id=id, method=method, params=params, jsonrpc="2.0"))
     id += 1
@@ -86,27 +87,35 @@ def jsonrequest(method, params=None, ssl=False):
         return response.get('result')
 
 
-results = jsonrequest("vol_list")
+results = jsonrequest("pool_list")
+for result in results:
+    print result['name'], result['size'], result['free_size']
+
+results = jsonrequest("vol_list", dict(pool="test"))
 for result in results:
     print result['name'], result['size']
 
-#print "+"*20
-#jsonrequest('vol_create', dict(name="test2", size=400000000))
+try:
+    jsonrequest('vol_create', dict(pool="test", name="test2", size=4000000))
 
-#print "+"*20
-#jsonrequest("vol_destroy", dict(name="test2-copy"))
+    try:
+        jsonrequest("vol_copy", dict(pool="test", vol_orig="test2", vol_new="test2-copy"))
 
-print "+"*20
-jsonrequest("vol_copy", dict(vol_orig="test2", vol_new="test2-copy"))
+        try:
+            jsonrequest("export_create", dict(pool="test", vol="test2", lun=5, initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
-print "+"*20
-jsonrequest("vol_destroy", dict(name="test2-copy"))
+            print "waiting"
+            time.sleep(10)
+            print "go!"
 
+        finally:
+            jsonrequest("export_destroy", dict(pool="test", vol="test2", initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
-#jsonrequest("export_destroy", dict(vol_name="test5", initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+        jsonrequest("vol_destroy", dict(pool="test", name="test2-copy"))
 
-#jsonrequest("export_create", dict(vol_name="test5", lun=5, initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+    finally:
+        jsonrequest("vol_destroy", dict(pool="test", name="test2"))
 
-#jsonrequest("create", dict(name="test6", size=20000000))
-#jsonrequest("destroy", dict(name="test6"))
+finally:
+    print "done"
 
