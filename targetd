@@ -32,6 +32,8 @@ import socket
 from threading import Lock
 import yaml
 import time
+from targetcli import UIRoot
+from configshell import ConfigShell
 
 setproctitle.setproctitle("targetd")
 
@@ -168,6 +170,13 @@ def export_list(req):
                                 vol=mlun_name, pool=mlun_vg))
     return exports
 
+#
+# HACK: call targetcli saveconfig method to save state
+#
+def _exports_save_config():
+    root = UIRoot(ConfigShell(), as_root=True)
+    root.ui_command_saveconfig()
+
 def export_create(req, pool, vol, initiator_wwn, lun):
     pool_check(pool)
     # only add new SO if it doesn't exist
@@ -203,6 +212,8 @@ def export_create(req, pool, vol, initiator_wwn, lun):
     else:
         mapped_lun = MappedLUN(na, lun, tpg_lun)
 
+    _exports_save_config()
+
 def export_destroy(req, pool, vol, initiator_wwn):
     pool_check(pool)
     fm = FabricModule('iscsi')
@@ -229,16 +240,13 @@ def export_destroy(req, pool, vol, initiator_wwn):
 
     # Clean up tree if branch has no leaf
     if len(list(na.mapped_luns)):
-        return
-    na.delete()
+        na.delete()
+        if len(list(tpg.node_acls)):
+            tpg.delete()
+            if len(list(t.tpgs)):
+                t.delete()
 
-    if len(list(tpg.node_acls)):
-        return
-    tpg.delete()
-
-    if len(list(t.tpgs)):
-        return
-    t.delete()
+    _exports_save_config()
 
 def pools(req):
     with vgopen(config['pool_name']) as vg:
