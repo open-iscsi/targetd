@@ -19,6 +19,7 @@
 # kernel target.
 
 import os
+import sys
 import contextlib
 import setproctitle
 from rtslib import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
@@ -54,6 +55,9 @@ for key, value in default_config.iteritems():
     if key not in config:
         config[key] = value
 
+if os.getuid() != 0:
+    print "targetd must run as root."
+    sys.exit(-1)
 
 # fail early if can't access vg
 lvm_handle = lvm.Liblvm()
