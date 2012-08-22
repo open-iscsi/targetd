@@ -239,11 +239,11 @@ def export_destroy(req, pool, vol, initiator_wwn):
                           (vol, initiator_wwn))
 
     # Clean up tree if branch has no leaf
-    if len(list(na.mapped_luns)):
+    if not len(list(na.mapped_luns)):
         na.delete()
-        if len(list(tpg.node_acls)):
+        if not len(list(tpg.node_acls)):
             tpg.delete()
-            if len(list(t.tpgs)):
+            if not len(list(t.tpgs)):
                 t.delete()
 
     _exports_save_config()
