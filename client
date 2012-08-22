@@ -111,11 +111,10 @@ try:
         finally:
             jsonrequest("export_destroy", dict(pool="test", vol="test2", initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
+    finally:
         jsonrequest("vol_destroy", dict(pool="test", name="test2-copy"))
 
-    finally:
-        jsonrequest("vol_destroy", dict(pool="test", name="test2"))
-
 finally:
+    jsonrequest("vol_destroy", dict(pool="test", name="test2"))
     print "done"
 
