@@ -5,8 +5,9 @@ Summary
 -------
 targetd exposes a remote API for configuring a Linux host to perform a
 block-based storage array role. API calls use the jsonrpc-2.0 format
-over HTTP. The API optionally also uses SSL for connection encryption,
-but does authentication via HTTP Basic auth.
+over HTTP, on TCP port 18700. The API optionally uses TLS for
+connection encryption, but does authentication via HTTP Basic auth for
+both encrypted and non-encrypted connections.
 
 Entities
 --------

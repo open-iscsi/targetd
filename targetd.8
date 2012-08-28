@@ -44,6 +44,34 @@ Sets the iSCSI target name that
 .B targetd
 will use. Default is
 .BR iqn.2003-01.org.linux-iscsi.<hostname>:targetd .
+.P
+.B ssl
+.br
+.B ssl_key
+.br
+.B ssl_cert
+.br
+Settings for enabling SSL/TLS encryption.
+.B ssl
+defaults to
+.BR off .
+If enabled, it will default to looking for key and cert files named
+.B targetd_key.pem
+and
+.BR targetd_cert.pem
+in
+.BR /etc/target .
+These paths may also be specified, using the
+.B ssl_key
+and
+.B ssl_cert
+config settings.
+.P
+Key and self-signed cert may be generated using openssl:
+.P
+.B openssl genrsa -out targetd_key.pem 2048
+.br
+.B openssl req -new -x509 -key targetd_key.pem -out targetd_cert.pem -days 1095
 .SH FILES
 .B /etc/target/targetd.yaml
 .SH SEE ALSO

@@ -21,10 +21,12 @@ https://github.com/agrover/targetd.
 Getting Started
 ---------------
 targetd has these Python library dependencies:
+* [targetcli] (https://github.com/agrover/targetcli-fb) (must be fb*)
 * [python-rtslib](https://github.com/agrover/rtslib-fb) 2.1.fb14+  (must be fb*)
 * [python-lvm](https://github.com/agrover/python-lvm) 1.2.2+
 * [python-setproctitle](https://github.com/dvarrazzo/py-setproctitle)
 * [PyYAML](http://pyyaml.org/)
+* [python-tlslite](http://trevp.net/tlslite/)
 
 All of these are available in Fedora Rawhide.
 
