@@ -36,16 +36,17 @@ import urllib2
 import json
 import time
 
-user = "foo"
-password = "bar"
+user = "admin"
+password = "targetd"
 url = "http://localhost:18700/targetrpc"
 host = 'localhost'
 port = 18700
 path = '/targetrpc'
 id = 1
+ssl = False
 
-def jsonrequest(method, params=None, ssl=False):
-    print "+"*20
+def jsonrequest(method, params=None):
+    print "+"*20, method
     global id
     data = json.dumps(dict(id=id, method=method, params=params, jsonrpc="2.0"))
     id += 1
@@ -86,14 +87,19 @@ def jsonrequest(method, params=None, ssl=False):
     else:
         return response.get('result')
 
+results = jsonrequest("export_list")
+for result in results:
+    print "export", result['initiator_wwn'], result['pool'], result['vol'], result['lun']
 
 results = jsonrequest("pool_list")
 for result in results:
-    print result['name'], result['size'], result['free_size']
+    print "pool", result['name'], result['size'], result['free_size']
 
 results = jsonrequest("vol_list", dict(pool="test"))
 for result in results:
-    print result['name'], result['size']
+    print "vol", result['name'], result['size']
+
+sys.exit(1)
 
 try:
     jsonrequest('vol_create', dict(pool="test", name="test2", size=4000000))
