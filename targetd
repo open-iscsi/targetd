@@ -386,14 +386,12 @@ class TargetHandler(BaseHTTPRequestHandler):
         finally:
             if not self.async_id:
                 self.wfile.write(rpcdata)
-                self.wfile.close()
 
     def async_completion(self):
         if not self.async_id:
             self.async_id = new_async_id()
             rpcdata = json.dumps(dict(error=dict(code=self.async_id, message="Async Operation"), id=self.id))
             self.wfile.write(rpcdata)
-            self.wfile.close()
             # wfile is buffered, need to do this to flush the response
             self.connection.shutdown(socket.SHUT_WR)
 
