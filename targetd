@@ -318,6 +318,10 @@ mapping = dict(
 
 class TargetHandler(BaseHTTPRequestHandler):
 
+    def log_request(self, code='-', size='-'):
+        # override base class - don't log good requests
+        pass
+
     def do_POST(self):
 
         self.async_id = None
