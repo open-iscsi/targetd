@@ -35,6 +35,7 @@ import sys
 import urllib2
 import json
 import time
+import socket
 
 user = "admin"
 password = "targetd"
@@ -59,8 +60,14 @@ def jsonrequest(method, params=None):
     else:
         scheme = 'http'
     url = "%s://%s:%s%s" % (scheme, host, port, path)
-    request = urllib2.Request(url, data, headers)
-    response_obj = urllib2.urlopen(request)
+    try:
+        request = urllib2.Request(url, data, headers)
+        response_obj = urllib2.urlopen(request)
+    except socket.error, e:
+        print "error, retrying with SSL"
+        url = "https://%s:%s%s" % (host, port, path)
+        request = urllib2.Request(url, data, headers)
+        response_obj = urllib2.urlopen(request)
     response_data = response_obj.read()
     #print('Got response: %s' % response_data)
     response = json.loads(response_data)
