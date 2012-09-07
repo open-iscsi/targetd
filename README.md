@@ -30,8 +30,6 @@ targetd has these Python library dependencies:
 
 All of these are available in Fedora Rawhide.
 
-Installing the targetcli package is also highly recommended.
-
 ### Configuring targetd
 
 A configuration file may be placed at `/etc/target/targetd.yaml`, and
