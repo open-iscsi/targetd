@@ -176,8 +176,11 @@ def export_list(req):
     for na in tpg.node_acls:
         for mlun in na.mapped_luns:
             mlun_vg, mlun_name = mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
-            exports.append(dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
-                                vol=mlun_name, pool=mlun_vg))
+            with vgopen(mlun_vg) as vg:
+                lv = lvopen(vg, mlun_name)
+                exports.append(dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
+                                    vol_name=mlun_name, pool=mlun_vg,
+                                    vol_uuid=lv.getUuid(), vol_size=lv.getSize()))
     return exports
 
 #
