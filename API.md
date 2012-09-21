@@ -1,4 +1,4 @@
-targetd API, version 0.2
+targetd API, version 0.3
 ========================
 
 Summary
@@ -43,7 +43,7 @@ Volume operations
 
 ### vol_list(pool)
 Returns an array of volume objects in `pool`. Each volume object
-contains `name`, `size`, and `UUID` fields.
+contains `name`, `size`, and `uuid` fields.
 
 Volume names may be reused, such as when a volume is created and then
 removed. Another volume could then be created with the same name, but
@@ -73,8 +73,9 @@ Returns an array of export objects. Each export object contains
 `initiator_wwn`, `lun`, `vol`, and `pool`. `initiator_wwn` is the
 iSCSI name (iqn.*) of the initiator with access to the export. `lun`
 is the SCSI logical unit number the initiator will see for this
-export. `vol` is the name of the backing volume, and `pool` is the
-name of the pool containing the backing volume.
+export. `vol_name` is the name of the backing volume. `vol_uuid` and
+`vol_size` return the unique identifier and size of the volume. The
+`pool` attribute is the name of the pool containing the backing volume.
 
 ### export_create(pool, vol, initiator_wwn, lun)
 Creates an export of volume `vol` in pool `pool` to the given
