@@ -82,6 +82,16 @@ def vgopen(pool_name):
         with contextlib.closing(lvm_handle.vgOpen(pool_name, "w")) as vg:
             yield vg
 
+def lvopen(vg, lv_name):
+    '''
+    Helper function that gets an lv from a vg and a name.
+    Returned lv should be used only within a vgopen.
+    '''
+    lvs = [lv for lv in vg.listLVs() if lv.getName() == lv_name]
+    if not len(lvs) == 1:
+        raise LookupError("Volume '%s' not found" % name)
+    return lvs[0]
+
 def pool_check(pool_name):
     '''
     pool_name *cannot* be trusted, funcs taking a pool param must call
@@ -117,10 +127,7 @@ def destroy(req, pool, name):
         pass
 
     with vgopen(pool) as vg:
-        lvs = [lv for lv in vg.listLVs() if lv.getName() == name]
-        if not len(lvs) == 1:
-            raise LookupError("Volume '%s' not found" % name)
-        lvs[0].remove()
+        lvopen(vg, name).remove()
         print "LV %s removed" % name
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
@@ -130,32 +137,32 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
     an async completion and report actual status via async_complete().
     """
     with vgopen(pool) as vg:
-        orig_lv = [lv for lv in vg.listLVs() if lv.getName() == vol_orig][0]
+        orig_lv = lvopen(vg, vol_orig)
 
-    copy_size = orig_lv.getSize()
-    create(req, pool, vol_new, copy_size)
-    try:
-        src_path = "/dev/%s/%s" % (pool, vol_orig)
-        dst_path = "/dev/%s/%s" % (pool, vol_new)
+        copy_size = orig_lv.getSize()
+        create(req, pool, vol_new, copy_size)
+        try:
+            src_path = "/dev/%s/%s" % (pool, vol_orig)
+            dst_path = "/dev/%s/%s" % (pool, vol_new)
 
-        start_time = time.clock()
-        with open(src_path, 'rb') as fsrc:
-            with open(dst_path, 'wb') as fdst:
-                copied = 0
-                while copied != copy_size:
-                    buf = fsrc.read(1024*1024)
-                    if not buf:
-                        break
-                    fdst.write(buf)
-                    copied += len(buf)
-                    if time.clock() > (start_time + timeout):
-                        req.async_completion()
-                        async_status(req, 0, int((float(copied)/copy_size)*100))
-        complete_if_async(req, 0)
+            start_time = time.clock()
+            with open(src_path, 'rb') as fsrc:
+                with open(dst_path, 'wb') as fdst:
+                    copied = 0
+                    while copied != copy_size:
+                        buf = fsrc.read(1024*1024)
+                        if not buf:
+                            break
+                        fdst.write(buf)
+                        copied += len(buf)
+                        if time.clock() > (start_time + timeout):
+                            req.async_completion()
+                            async_status(req, 0, int((float(copied)/copy_size)*100))
+            complete_if_async(req, 0)
 
-    except:
-        destroy(req, vol_new)
-        raise
+        except:
+            destroy(req, vol_new)
+            raise
 
 def export_list(req):
     try:
