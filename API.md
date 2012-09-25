@@ -70,12 +70,13 @@ Exports make a volume accessible to a remote iSCSI initiator.
 
 ### export_list()
 Returns an array of export objects. Each export object contains
-`initiator_wwn`, `lun`, `vol`, and `pool`. `initiator_wwn` is the
-iSCSI name (iqn.*) of the initiator with access to the export. `lun`
-is the SCSI logical unit number the initiator will see for this
-export. `vol_name` is the name of the backing volume. `vol_uuid` and
-`vol_size` return the unique identifier and size of the volume. The
-`pool` attribute is the name of the pool containing the backing volume.
+`initiator_wwn`, `lun`, `vol_name`, `vol_size`, `vol_uuid`, and
+`pool`. `initiator_wwn` is the iSCSI name (iqn.*) of the initiator
+with access to the export. `lun` is the SCSI logical unit number the
+initiator will see for this export. `vol_name` is the name of the
+backing volume. `vol_uuid` and `vol_size` return the unique identifier
+and size of the volume. The `pool` attribute is the name of the pool
+containing the backing volume.
 
 ### export_create(pool, vol, initiator_wwn, lun)
 Creates an export of volume `vol` in pool `pool` to the given
