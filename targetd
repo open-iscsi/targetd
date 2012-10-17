@@ -97,7 +97,6 @@ def volumes(req, pool):
 def create(req, pool, name, size):
     with vgopen(pool) as vg:
         lv = vg.createLvLinear(name, int(size))
-        print "LV %s created, size %s" % (name, lv.getSize())
 
 def destroy(req, pool, name):
     try:
