@@ -65,32 +65,17 @@ if os.getuid() != 0:
     sys.exit(-1)
 
 # fail early if can't access vg
-lvm_handle = lvm.Liblvm()
-test_vg = lvm_handle.vgOpen(config['pool_name'], "w")
+test_vg = lvm.vgOpen(config['pool_name'], "w")
 test_vg.close()
-lvm_handle.close()
 
 #
-# We can't keep lvm/vg handles open continually since liblvm does weird
-# things with signals. Instead, define this context manager that eases
-# getting vg in each method and calls close() on vg and lvm objs.
+# Helper function to check/close vg for us.
 #
 @contextlib.contextmanager
 def vgopen(pool_name):
     pool_check(pool_name)
-    with contextlib.closing(lvm.Liblvm()) as lvm_handle:
-        with contextlib.closing(lvm_handle.vgOpen(pool_name, "w")) as vg:
-            yield vg
-
-def lvopen(vg, lv_name):
-    '''
-    Helper function that gets an lv from a vg and a name.
-    Returned lv should be used only within a vgopen.
-    '''
-    lvs = [lv for lv in vg.listLVs() if lv.getName() == lv_name]
-    if not len(lvs) == 1:
-        raise LookupError("Volume '%s' not found" % name)
-    return lvs[0]
+    with contextlib.closing(lvm.vgOpen(pool_name, "w")) as vg:
+        yield vg
 
 def pool_check(pool_name):
     '''
@@ -127,8 +112,7 @@ def destroy(req, pool, name):
         pass
 
     with vgopen(pool) as vg:
-        lvopen(vg, name).remove()
-        print "LV %s removed" % name
+        vg.lvFromName(name).remove()
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
     """
@@ -137,7 +121,7 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
     an async completion and report actual status via async_complete().
     """
     with vgopen(pool) as vg:
-        orig_lv = lvopen(vg, vol_orig)
+        orig_lv = vg.lvFromName(vol_orig)
 
         copy_size = orig_lv.getSize()
         create(req, pool, vol_new, copy_size)
@@ -177,7 +161,7 @@ def export_list(req):
         for mlun in na.mapped_luns:
             mlun_vg, mlun_name = mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
             with vgopen(mlun_vg) as vg:
-                lv = lvopen(vg, mlun_name)
+                lv = vg.lvFromName(mlun_name)
                 exports.append(dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
                                     vol_name=mlun_name, pool=mlun_vg,
                                     vol_uuid=lv.getUuid(), vol_size=lv.getSize()))
