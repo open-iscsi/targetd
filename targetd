@@ -175,7 +175,11 @@ def _exports_save_config():
     root.ui_command_saveconfig()
 
 def export_create(req, pool, vol, initiator_wwn, lun):
-    pool_check(pool)
+
+    # get wwn of volume so LIO can export as vpd83 info
+    with vgopen(pool) as vg:
+        vol_serial = vg.lvFromName(vol).getUuid()
+
     # only add new SO if it doesn't exist
     # so.name concats pool & vol names separated by ':'
     so_name = "%s:%s" % (pool,vol)
@@ -183,6 +187,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
         so = BlockStorageObject(so_name)
     except RTSLibError:
         so = BlockStorageObject(so_name, dev="/dev/%s/%s" % (pool, vol))
+        so.wwn = vol_serial
 
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
