@@ -8,15 +8,16 @@ supports an HTTP/jsonrpc-2.0 interface to let a remote administrator
 allocate volumes from an LVM volume group, and export those volumes
 over iSCSI.
 
-Current Status
---------------
-targetd is pre-alpha, and contributions are welcome! It is licensed
+targetd development
+-------------------
+Contributions are welcome. targetd is licensed
 under the GPLv3. Please use target-devel@vger.kernel.org for
 discussion. Source repo and bug tracking is at
 https://github.com/agrover/targetd.
 
-**NOTE: targetd is PRE-ALPHA, STORAGE-RELATED software. Do NOT use
-  around valuable data!**
+**NOTE: targetd is STORAGE-RELATED software, and may be used to
+  remove volumes without warning from the LVM volume group it is
+  configured to use. Please take care in its use.**
 
 Getting Started
 ---------------
