@@ -36,7 +36,6 @@ from targetcli import UIRoot
 from configshell import ConfigShell
 import tlslite
 from subprocess import Popen, PIPE
-#import traceback
 
 
 # Notes:
@@ -682,7 +681,6 @@ class TargetHandler(BaseHTTPRequestHandler):
                 error = (-32601, "method %s not found" % method)
                 raise
             except TypeError:
-                #print traceback.format_exc()
                 error = (-32602, "invalid method parameter(s)")
                 raise
             except TargetdError, td:
