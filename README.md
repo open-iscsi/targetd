@@ -6,7 +6,8 @@ Remote configuration of a LIO-based storage appliance
 targetd turns Linux into a remotely-configurable storage appliance. It
 supports an HTTP/jsonrpc-2.0 interface to let a remote administrator
 allocate volumes from an LVM volume group, and export those volumes
-over iSCSI.
+over iSCSI.  It also has the ability to create remote file systems and export
+those file systems via NFS/CIFS (work in progress).
 
 targetd development
 -------------------
@@ -16,8 +17,8 @@ discussion. Source repo and bug tracking is at
 https://github.com/agrover/targetd.
 
 **NOTE: targetd is STORAGE-RELATED software, and may be used to
-  remove volumes without warning from the LVM volume group it is
-  configured to use. Please take care in its use.**
+  remove volumes and file systems without warning from the LVM volume groups
+  and mount points it is configured to use. Please take care in its use.**
 
 Getting Started
 ---------------
@@ -37,11 +38,20 @@ A configuration file may be placed at `/etc/target/targetd.yaml`, and
 is in [YAML](http://www.yaml.org/spec/1.2/spec.html) format. Here's
 an example:
 
-    pool_name: test
     user: "foo" # strings quoted, or not
     password: bar
     ssl: false
     target_name: iqn.2003-01.org.example.mach1:1234
+
+    #Note: The uuid is currently not being used and can be set to null,
+    #it will eventually be used for more positive storage identification.
+    #You can have as many pools as you wish.  Use the form
+    #(white space sensitive):
+    #<sp><sp><name>:<sp>{type:<sp>[fs|block],<sp>uuid:<sp><uuid>}
+    pools:
+      vg-targetd: {type: block, uuid: null}
+      vg-targetd-too: {type: block, uuid: c7tiaU-YTF3-v1O5-zVFA-55kq-czvK-DCmyUg}
+      /mnt/btrfs: {type: fs, uuid: c1ac7716-2a6e-42fe-8cbf-807eeaaf3ebc}
 
 targetd defaults to using the "vg-targetd" volume group, and username 'admin'
 password 'targetd' for the HTTP jsonrpc interface.

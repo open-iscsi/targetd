@@ -1,12 +1,12 @@
-targetd API, version 0.3
+targetd API, version 0.4
 ========================
 
 Summary
 -------
 targetd exposes a remote API for configuring a Linux host to perform a
-block-based storage array role. API calls use the jsonrpc-2.0 format
-over HTTP, on TCP port 18700. The API optionally uses TLS for
-connection encryption, but does authentication via HTTP Basic auth for
+block-based storage array role and a file system storage role. API calls use the
+jsonrpc-2.0 format over HTTP, on TCP port 18700. The API optionally uses
+TLS for connection encryption, but does authentication via HTTP Basic auth for
 both encrypted and non-encrypted connections.
 
 Entities
@@ -16,6 +16,9 @@ Raw storage space on the host is a `pool`. From a pool, a volume
 `export`. Finally, long-running API calls may return before processing
 is complete, and if so will supply an `async` id, which the caller may
 use to check the status of the operation.
+
+For file system related operations, the pool refers to a btrfs mount point.
+Each newly created file system is a subvolume on that mount point.
 
 Conventions
 -----------
@@ -36,7 +39,10 @@ via this API.
 
 ### pool_list()
 Returns an array of pool objects. Each pool object contains `name`,
-`size`, and `free_size` fields.
+`size`, `free_size`, `uuid` and `type` fields.  The domain of the type field is
+[block|fs].  At the moment uuid is not utilized.  The intention is to verify
+that the correct storage is associated in the configuration file to mitigate
+data loss if physical disks get re-arranged at boot.
 
 Volume operations
 -----------------
@@ -84,6 +90,42 @@ initiator, and maps it to logical unit number `lun`.
 
 ### export_destroy(pool, vol, initiator_wwn)
 Removes an export of `vol` in `pool` to `initiator_wwn`.
+
+File system operations
+----------------------
+Ability to create different file systems and perform operation on them.  The
+pool is a btrfs sub volume and new file systems are sub volumes within that
+sub volume.
+
+### fs_list()
+Returns an array of file system objects.  Each file system object contains:
+`name`, `uuid`, `total_space`, `free_space` and `pool` they were created from.
+
+### fs_destroy(uuid)
+Destroys the sub volume identified by file system `uuid` and any snapshots
+created from it.
+
+### fs_create(pool_name, name, size_bytes)
+Create a new sub volume within the specified `pool_name` with the new `name`.
+The parameter `size_bytes` is currently ignored, but will eventually be used
+to set the quota for the sub volume.
+
+### fs_clone(fs_uuid, dest_fs_name, snapshot_id)
+Create a read/write-able copy of the file system with uuid `fs_uuid` to the new
+name of `dest_fs_name`.  If `snapshot_id` is specified the new file system
+contents will be created from the snapshot copy.
+
+### ss_list(fs_uuid)
+Returns an array of read only snapshot objects for the file system specified in
+`fs_uuid`.  The returned objects contain: `name`, `uuid`, `timestamp`.  Time
+stamp is when the snapshot was taken and it is represented as seconds from epoch.
+
+### fs_snapshot(fs_uuid, dest_ss_name)
+Creates a read only copy of the file system specified by `fs_uuid`.  The new
+file system has the name represented by `dest_ss_name`.
+
+### fs_snapshot_delete(fs_uuid, ss_uuid)
+Deletes the read only snapshot specified by `fs_uuid` and `ss_uuid`.
 
 Async method calls
 ------------------

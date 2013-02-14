@@ -3,8 +3,9 @@
 .B targetd
 .SH DESCRIPTION
 .B targetd
-is a service to allow the remote configuration of block device volumes
-within a pool, as well as exporting volumes to other hosts via iSCSI.
+is a service to allow the remote configuration of block device volumes and
+file systems within a pool, as well as exporting volumes to other hosts via iSCSI.
+Configured remote file systems will be made available via NFS/CIFS.
 .SH USAGE
 Run
 .B targetd
@@ -15,17 +16,21 @@ uses
 .B /etc/target/targetd.yaml
 for configuration. It is in YAML format.
 .B targetd
-currently only sets scalar values so all values are just
-.BR "<setting>: <value>" .
+currently uses scalar values and collection values, see example for details.
 .SS CONFIGURATION FILE SETTINGS
-.B pool_name
+.B pools:
 .br
-Sets the LVM Volume Group that
+Sets the LVM Volume Group or file system mount point(s) that
 .B targetd
-will use to allocate volumes. Defaults to
-.BR "pool_name: vg-targetd" .
+will use to allocate volumes or file system from. Defaults to
+.br
+.B "pools:"
+.br
+.B "  vg-targetd: {type: block, uuid: null}"
+.br
+.P
 .B targetd
-currently supports a single volume group only.
+currently supports arbitrary number of lvm volume groups and btrfs mount points.
 .P
 .B user
 .br
