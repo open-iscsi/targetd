@@ -51,7 +51,7 @@ from subprocess import Popen, PIPE
 # time the user creates a file system we are creating a subvolume under fs.
 # Each time a FS clone is made we create the clone under fs.  For each snapshot
 # (RO clone) we are creating a read only snapshot in
-# <mount>/ss/<fsname>/<snapshot name>
+# <mount>/targetd_ss/<fsname>/<snapshot name>
 #
 # There maybe better ways of utilizing btrfs,  we shall see.
 
@@ -190,7 +190,7 @@ def volumes(req, pool):
 
 def create(req, pool, name, size):
     with vgopen(pool) as vg:
-        lv = vg.createLvLinear(name, int(size))
+        vg.createLvLinear(name, int(size))
 
 
 def fs_create(req, pool_name, name, size_bytes):
@@ -298,7 +298,8 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
                     copied += len(buf)
                     if time.clock() > (start_time + timeout):
                         req.async_completion()
-                        async_status(req, 0, int((float(copied) / copy_size) * 100))
+                        async_status(req, 0,
+                                     int((float(copied) / copy_size) * 100))
         complete_if_async(req, 0)
 
     except Exception, e:
@@ -317,12 +318,14 @@ def export_list(req):
     exports = []
     for na in tpg.node_acls:
         for mlun in na.mapped_luns:
-            mlun_vg, mlun_name = mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
+            mlun_vg, mlun_name = \
+                mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
             with vgopen(mlun_vg) as vg:
                 lv = vg.lvFromName(mlun_name)
-                exports.append(dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
-                                    vol_name=mlun_name, pool=mlun_vg,
-                                    vol_uuid=lv.getUuid(), vol_size=lv.getSize()))
+                exports.append(
+                    dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
+                         vol_name=mlun_name, pool=mlun_vg,
+                         vol_uuid=lv.getUuid(), vol_size=lv.getSize()))
     return exports
 
 
@@ -350,7 +353,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
 
     # export useful scsi model if kernel > 3.8
     try:
-        so.set_attribute("emulate_model_alias", 1)
+        so.set_attribute("emulate_model_alias", '1')
     except RTSLibError:
         pass
 
@@ -391,7 +394,8 @@ def export_destroy(req, pool, vol, initiator_wwn):
 
     for mlun in na.mapped_luns:
         # all SOs are Block so we can access udev_path safely
-        mlun_vg, mlun_name = mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
+        mlun_vg, mlun_name = \
+            mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
 
         if mlun_vg == pool and mlun_name == vol:
             tpg_lun = mlun.tpg_lun
@@ -480,7 +484,6 @@ def ss(req, fs_uuid, fs_cache=None):
             if result == 0:
                 data = split_stdout(out)
                 if len(data):
-                    (total, free) = fs_space_values(full_path)
                     for e in data:
                         ts = "%s %s" % (e[10], e[11])
                         time_epoch = int(time.mktime(
@@ -534,7 +537,8 @@ def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
         base = os.path.join(fs['pool'], fs_path)
 
         if snapshot:
-            source = os.path.join(fs['pool'], ss_path, fs['name'], snapshot['name'])
+            source = os.path.join(fs['pool'], ss_path, fs['name'],
+                                  snapshot['name'])
             dest = os.path.join(base, dest_fs_name)
 
             if os.path.exists(dest):
@@ -703,7 +707,11 @@ class TargetHandler(BaseHTTPRequestHandler):
     def async_completion(self):
         if not self.async_id:
             self.async_id = new_async_id()
-            rpcdata = json.dumps(dict(error=dict(code=self.async_id, message="Async Operation"), id=self.id))
+            rpcdata = json.dumps(
+                dict(error=
+                     dict(
+                         code=self.async_id,
+                         message="Async Operation"), id=self.id))
             self.wfile.write(rpcdata)
             # wfile is buffered, need to do this to flush the response
             self.connection.shutdown(socket.SHUT_WR)
