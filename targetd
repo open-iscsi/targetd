@@ -35,14 +35,39 @@ import time
 from targetcli import UIRoot
 from configshell import ConfigShell
 import tlslite
+from subprocess import Popen, PIPE
+import traceback
+
+
+# Notes:
+#
+# User can configure block pools (lvm volume groups) 1 to many or 0-many file
+# system mount points to be used as pools.  At this time you have to specify
+# a block pool for block operations and file system mount point pool for FS
+# operations.  We could use files on a file system for block too and create
+# file systems on top of lvm too, but that is TBD.
+#
+# We are using btrfs to provide all the cool fast FS features.  User supplies a
+# btrfs mount point and we create a targetd_fs and targetd_ss subvolumes.  Each
+# time the user creates a file system we are creating a subvolume under fs.
+# Each time a FS clone is made we create the clone under fs.  For each snapshot
+# (RO clone) we are creating a read only snapshot in
+# <mount>/ss/<fsname>/<snapshot name>
+#
+# There maybe better ways of utilizing btrfs,  we shall see.
 
 setproctitle.setproctitle("targetd")
 
 config_path = "/etc/target/targetd.yaml"
 
+fs_path = "targetd_fs"
+ss_path = "targetd_ss"
+fs_cmd = 'btrfs'
+
+error_codes = (-10,)
+
 default_config = dict(
-    #TODO: We need to add in uuid lookup and verification to ensure
-    #that the correct block device or fs is being used.
+    #TODO: It would be good to do uuid verification before changing storage
     pools = { 'vg-targetd' : { 'uuid':None, 'type':'block'}},
     user = "admin",
     password = "targetd",
@@ -51,6 +76,36 @@ default_config = dict(
     ssl_cert = "/etc/target/targetd_cert.pem",
     ssl_key = "/etc/target/targetd_key.pem",
 )
+
+
+class TargetdError(Exception):
+    def __init__(self, error_code, message, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
+        self.error = error_code
+        self.msg = message
+
+
+def invoke(cmd, raise_exception=True):
+    """
+    Exec a command returning a tuple (exit code, stdout, stderr) and optionally
+    throwing an exception on non-zero exit code.
+    """
+    c = Popen(cmd, stdout=PIPE, stderr=PIPE)
+    out = c.communicate()
+
+    if raise_exception:
+        if c.returncode != 0:
+            cmd_str = str(cmd)
+            raise TargetdError(-303, 'Unexpected exit code "%s" %s, out= %s' %
+                                     (cmd_str, str(c.returncode),
+                                     str(out[0] + out[1])))
+
+    return c.returncode, out[0], out[1]
+
+
+def create_sub_volume(p):
+    if not os.path.exists(p):
+        invoke([fs_cmd, 'subvolume', 'create', p])
 
 config = {}
 if os.path.isfile(config_path):
@@ -67,10 +122,19 @@ if os.getuid() != 0:
     sys.exit(-1)
 
 # fail early if can't access vg
-for k,v in config['pools'].items():
+for k, v in config['pools'].items():
     if v['type'] == "block":
         test_vg = lvm.vgOpen(k)
         test_vg.close()
+    else:
+        #Make sure we have the appropriate subvolumes available
+        dirs = [os.path.join(k, fs_path), os.path.join(k, ss_path)]
+        for d in dirs:
+            try:
+                create_sub_volume(d)
+            except TargetdError, e:
+                print 'Unable to create required subvolumes!\n', e.msg
+                raise
 
 #
 # Helper function to check/close vg for us.
@@ -80,6 +144,18 @@ def vgopen(pool_name):
     pool_check(pool_name)
     with contextlib.closing(lvm.vgOpen(pool_name, "w")) as vg:
         yield vg
+
+
+def split_stdout(out):
+    """
+    Split the text out as an array of text arrays.
+    """
+    rc = []
+    for line in out.split('\n'):
+        elem = line.split(' ')
+        if len(elem) > 1:
+            rc.append(elem)
+    return rc
 
 def fs_space_values(mount_point):
     """
@@ -97,7 +173,7 @@ def pool_check(pool_name):
     been configured to use.
     """
     if pool_name not in config['pools']:
-        raise IOError("Invalid pool name")
+        raise TargetdError(-110, "Invalid pool")
 
 def volumes(req, pool):
     output = []
@@ -111,6 +187,44 @@ def create(req, pool, name, size):
     with vgopen(pool) as vg:
         lv = vg.createLvLinear(name, int(size))
 
+def fs_create(req, pool_name, name, size_bytes):
+    pool_check(pool_name)
+
+    if config['pools'][pool_name]['type'] == 'fs':
+        full_path = os.path.join(pool_name, fs_path, name)
+
+        if not os.path.exists(full_path):
+            invoke([fs_cmd, 'subvolume', 'create', full_path])
+        else:
+            raise TargetdError(-53, 'FS already exists')
+    else:
+        raise TargetdError(-110, "Pool not appropriate for FS creation")
+
+
+def fs_snapshot(req, fs_uuid, dest_ss_name):
+    fs = _get_fs_by_uuid(req, fs_uuid)
+
+    if fs:
+        source_path = os.path.join(fs['pool'], fs_path, fs['name'])
+        dest_base = os.path.join(fs['pool'], ss_path, fs['name'])
+        dest_path = os.path.join(dest_base, dest_ss_name)
+
+        create_sub_volume(dest_base)
+
+        if os.path.exists(dest_path):
+            raise TargetdError(-53, "Snapshot already exists with that name!")
+
+        invoke([fs_cmd, 'subvolume', 'snapshot', '-r', source_path, dest_path])
+    return None
+
+
+def fs_snapshot_delete(req, fs_uuid, ss_uuid):
+    fs_hash = _get_fs_by_uuid(req, fs_uuid)
+    snapshot = _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs_hash)
+    path = os.path.join(fs_hash['pool'], ss_path, fs_hash['name'],
+                        snapshot['name'])
+    fs_subvolume_delete(path)
+
 def destroy(req, pool, name):
     try:
         fm = FabricModule('iscsi')
@@ -119,12 +233,34 @@ def destroy(req, pool, name):
 
         so_name = "%s:%s" % (pool, name)
         if so_name in (lun.storage_object.name for lun in tpg.luns):
-            raise ValueError("Volume '%s' cannot be removed while exported" % name)
+            raise TargetdError(-303, "Volume '%s' cannot be "
+                                     "removed while exported" % name)
     except RTSLibNotInCFS:
         pass
 
     with vgopen(pool) as vg:
         vg.lvFromName(name).remove()
+
+def fs_subvolume_delete(path):
+    invoke([fs_cmd, 'subvolume', 'delete', path])
+
+def fs_destroy(req, pool, uuid, name):
+    pool_check(pool)
+    #Check to see if this file system has any read-only snapshots, if yes then
+    #delete.  The API requires a FS to list its RO copies, we may want to
+    #reconsider this decision.
+
+    base_snapshot_dir = os.path.join(pool, ss_path, name)
+
+    snapshots = ss(req, uuid)
+    for s in snapshots:
+        fs_subvolume_delete(os.path.join(base_snapshot_dir, s['name']))
+
+    if os.path.exists(base_snapshot_dir):
+        fs_subvolume_delete(base_snapshot_dir)
+
+    fs_subvolume_delete(os.path.join(pool, fs_path, name))
+
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
     """
@@ -156,9 +292,10 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
                         async_status(req, 0, int((float(copied)/copy_size)*100))
         complete_if_async(req, 0)
 
-    except:
+    except Exception, e:
         destroy(req, pool, vol_new)
-        raise
+        raise TargetdError(-303, "Unexpected exception: %s" % (str(e)))
+
 
 def export_list(req):
     try:
@@ -211,7 +348,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
     t = Target(fm, config['target_name'])
     tpg = TPG(t, 1)
     tpg.enable = True
-    tpg.set_attribute("authentication", 0)
+    tpg.set_attribute("authentication", '0')
     np = NetworkPortal(tpg, "0.0.0.0")
     na = NodeACL(tpg, initiator_wwn)
 
@@ -255,7 +392,7 @@ def export_destroy(req, pool, vol, initiator_wwn):
                 so.delete()
             break
     else:
-        raise LookupError("Volume '%s' not found in %s exports" %
+        raise TargetdError(-151, "Volume '%s' not found in %s exports" %
                           (vol, initiator_wwn))
 
     # Clean up tree if branch has no leaf
@@ -268,6 +405,7 @@ def export_destroy(req, pool, vol, initiator_wwn):
 
     _exports_save_config()
 
+
 def pools(req):
     results = []
 
@@ -275,12 +413,128 @@ def pools(req):
         if v['type'] == 'block':
             with vgopen(k) as vg:
                 results.append(dict(name=vg.getName(), size=vg.getSize(),
-                                free_size=vg.getFreeSize()))
+                                free_size=vg.getFreeSize(), type='block'))
         else:
             total, free = fs_space_values(k)
-            results.append(dict(name=k, size=total, free_size=free))
+            results.append(dict(name=k, size=total, free_size=free, type='fs'))
 
     return results
+
+def fs(req):
+    fs = []
+
+    for k, v in config['pools'].items():
+        if v['type'] == 'fs':
+            full_path = os.path.join(k, fs_path)
+
+            #TODO take out this loop, used to handle bug in btrfs
+            #ERROR: Failed to lookup path for root 0 - No such file or directory
+            while True:
+                result, out, err = invoke([fs_cmd, 'subvolume', 'list', '-u',
+                                           full_path], False)
+                if result == 0:
+                    data = split_stdout(out)
+                    if len(data):
+                        (total, free) = fs_space_values(full_path)
+                        for e in data:
+                            fs.append(dict(name=e[10],uuid=e[8],
+                                           total_space=total, free_space=free,
+                                           pool=k))
+                    break
+                elif result == 19:
+                    time.sleep(1)
+                    continue
+                else:
+                    raise TargetdError(-303, "Unexpected exit code %d" % result)
+
+    return fs
+
+
+def ss(req, fs_uuid, fs_cache=None):
+    snapshots = []
+
+    if fs_cache is None:
+        fs_cache = _get_fs_by_uuid(req, fs_uuid)
+
+    full_path = os.path.join(fs_cache['pool'], ss_path, fs_cache['name'])
+
+    #TODO take out this loop, used to handle bug in btrfs
+    # ERROR: Failed to lookup path for root 0 - No such file or directory
+
+    if os.path.exists(full_path):
+        while True:
+            result, out, err = invoke([fs_cmd, 'subvolume', 'list', '-s',
+                                       full_path], False)
+            if result == 0:
+                data = split_stdout(out)
+                if len(data):
+                    (total, free) = fs_space_values(full_path)
+                    for e in data:
+                        ts = "%s %s" % (e[10], e[11])
+                        time_epoch = int(time.mktime(
+                            time.strptime(ts, '%Y-%m-%d %H:%M:%S')))
+                        st = dict(name=e[-1], uuid=e[-3], timestamp=time_epoch)
+                        snapshots.append(st)
+                break
+            elif result == 19:
+                time.sleep(1)
+                continue
+            else:
+                raise TargetdError(-303, "Unexpected exit code %d" % result)
+
+    return snapshots
+
+
+def _get_fs_by_uuid(req, fs_uuid):
+    current_fs = fs(req)
+    for f in current_fs:
+        if f['uuid'] == fs_uuid:
+            return f
+
+    return None
+
+
+def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs=None):
+
+    if fs is None:
+        fs = _get_fs_by_uuid(req, fs_uuid)
+
+    snapshots = ss(req, fs_uuid, fs)
+
+    for s in snapshots:
+        if s['uuid'] == ss_uuid:
+            return s
+    return None
+
+def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
+    fs = _get_fs_by_uuid(req, fs_uuid)
+
+    if fs and not snapshot_id:
+        base = os.path.join(fs['pool'], fs_path)
+        dest = os.path.join(base, dest_fs_name)
+        if os.path.exists(dest):
+            raise TargetdError(-51, "Filesystem with that name exists!")
+
+        invoke([fs_cmd, 'subvolume', 'snapshot', os.path.join(base, fs['name']),
+                dest])
+    elif fs and snapshot_id:
+        snapshot = _get_ss_by_uuid(req, fs_uuid, snapshot_id)
+        base = os.path.join(fs['pool'], fs_path)
+
+        if snapshot:
+            source = os.path.join(fs['pool'], ss_path, fs['name'], snapshot['name'])
+            dest = os.path.join(base, dest_fs_name)
+
+            if os.path.exists(dest):
+                raise TargetdError(-51, "Filesystem with that name exists!")
+
+            invoke([fs_cmd, 'subvolume', 'snapshot', source, dest])
+        else:
+            raise TargetdError(-112, "snapshot not found")
+    else:
+        raise TargetdError(-104, "fs_uuid not found!")
+
+    return None
 
 def async_list(req):
     """
@@ -339,6 +593,13 @@ mapping = dict(
     export_destroy=export_destroy,
     pool_list=pools,
     async_list=async_list,
+    fs_list=fs,
+    fs_destroy=fs_destroy,
+    fs_create=fs_create,
+    fs_clone=fs_clone,
+    ss_list=ss,
+    fs_snapshot=fs_snapshot,
+    fs_snapshot_delete=fs_snapshot_delete
     )
 
 
@@ -405,7 +666,11 @@ class TargetHandler(BaseHTTPRequestHandler):
                 error = (-32601, "method %s not found" % method)
                 raise
             except TypeError:
+                #print traceback.format_exc()
                 error = (-32602, "invalid method parameter(s)")
+                raise
+            except TargetdError, td:
+                error = (td.error, td.msg)
                 raise
             except Exception, e:
                 error = (-1, "%s: %s" % (type(e).__name__, e))
@@ -414,7 +679,9 @@ class TargetHandler(BaseHTTPRequestHandler):
             rpcdata = json.dumps(dict(result=result, id=self.id))
 
         except:
-            rpcdata = json.dumps(dict(error=dict(code=error[0], message=error[1]), id=self.id))
+            print 'Error data=', str(error)
+            rpcdata = json.dumps(dict(error=dict(code=error[0],
+                                                 message=error[1]), id=self.id))
         finally:
             if not self.async_id:
                 self.wfile.write(rpcdata)
