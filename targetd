@@ -36,7 +36,7 @@ from targetcli import UIRoot
 from configshell import ConfigShell
 import tlslite
 from subprocess import Popen, PIPE
-import traceback
+#import traceback
 
 
 # Notes:
@@ -68,13 +68,13 @@ error_codes = (-10,)
 
 default_config = dict(
     #TODO: It would be good to do uuid verification before changing storage
-    pools = { 'vg-targetd' : { 'uuid':None, 'type':'block'}},
-    user = "admin",
-    password = "targetd",
-    target_name = "iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname(),
-    ssl = False,
-    ssl_cert = "/etc/target/targetd_cert.pem",
-    ssl_key = "/etc/target/targetd_key.pem",
+    pools={'vg-targetd': {'uuid': None, 'type': 'block'}},
+    user="admin",
+    password="targetd",
+    target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname(),
+    ssl=False,
+    ssl_cert="/etc/target/targetd_cert.pem",
+    ssl_key="/etc/target/targetd_key.pem",
 )
 
 
@@ -98,7 +98,7 @@ def invoke(cmd, raise_exception=True):
             cmd_str = str(cmd)
             raise TargetdError(-303, 'Unexpected exit code "%s" %s, out= %s' %
                                      (cmd_str, str(c.returncode),
-                                     str(out[0] + out[1])))
+                                      str(out[0] + out[1])))
 
     return c.returncode, out[0], out[1]
 
@@ -106,6 +106,7 @@ def invoke(cmd, raise_exception=True):
 def create_sub_volume(p):
     if not os.path.exists(p):
         invoke([fs_cmd, 'subvolume', 'create', p])
+
 
 config = {}
 if os.path.isfile(config_path):
@@ -136,11 +137,12 @@ for k, v in config['pools'].items():
                 print 'Unable to create required subvolumes!\n', e.msg
                 raise
 
-#
-# Helper function to check/close vg for us.
-#
+
 @contextlib.contextmanager
 def vgopen(pool_name):
+    """
+    Helper function to check/close vg for us.
+    """
     pool_check(pool_name)
     with contextlib.closing(lvm.vgOpen(pool_name, "w")) as vg:
         yield vg
@@ -157,6 +159,7 @@ def split_stdout(out):
             rc.append(elem)
     return rc
 
+
 def fs_space_values(mount_point):
     """
     Return a tuple (total, free) from the specified path
@@ -165,6 +168,7 @@ def fs_space_values(mount_point):
     free = (st.f_bavail * st.f_frsize)
     total = (st.f_blocks * st.f_frsize)
     return total, free
+
 
 def pool_check(pool_name):
     """
@@ -175,6 +179,7 @@ def pool_check(pool_name):
     if pool_name not in config['pools']:
         raise TargetdError(-110, "Invalid pool")
 
+
 def volumes(req, pool):
     output = []
     with vgopen(pool) as vg:
@@ -183,9 +188,11 @@ def volumes(req, pool):
                                uuid=lv.getUuid()))
     return output
 
+
 def create(req, pool, name, size):
     with vgopen(pool) as vg:
         lv = vg.createLvLinear(name, int(size))
+
 
 def fs_create(req, pool_name, name, size_bytes):
     pool_check(pool_name)
@@ -225,6 +232,7 @@ def fs_snapshot_delete(req, fs_uuid, ss_uuid):
                         snapshot['name'])
     fs_subvolume_delete(path)
 
+
 def destroy(req, pool, name):
     try:
         fm = FabricModule('iscsi')
@@ -241,8 +249,10 @@ def destroy(req, pool, name):
     with vgopen(pool) as vg:
         vg.lvFromName(name).remove()
 
+
 def fs_subvolume_delete(path):
     invoke([fs_cmd, 'subvolume', 'delete', path])
+
 
 def fs_destroy(req, pool, uuid, name):
     pool_check(pool)
@@ -282,14 +292,14 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
             with open(dst_path, 'wb') as fdst:
                 copied = 0
                 while copied != copy_size:
-                    buf = fsrc.read(1024*1024)
+                    buf = fsrc.read(1024 * 1024)
                     if not buf:
                         break
                     fdst.write(buf)
                     copied += len(buf)
                     if time.clock() > (start_time + timeout):
                         req.async_completion()
-                        async_status(req, 0, int((float(copied)/copy_size)*100))
+                        async_status(req, 0, int((float(copied) / copy_size) * 100))
         complete_if_async(req, 0)
 
     except Exception, e:
@@ -316,22 +326,23 @@ def export_list(req):
                                     vol_uuid=lv.getUuid(), vol_size=lv.getSize()))
     return exports
 
-#
-# HACK: call targetcli saveconfig method to save state
-#
+
 def _exports_save_config():
+    """
+    HACK: call targetcli saveconfig method to save state
+    """
     root = UIRoot(ConfigShell(), as_root=True)
     root.ui_command_saveconfig()
 
-def export_create(req, pool, vol, initiator_wwn, lun):
 
+def export_create(req, pool, vol, initiator_wwn, lun):
     # get wwn of volume so LIO can export as vpd83 info
     with vgopen(pool) as vg:
         vol_serial = vg.lvFromName(vol).getUuid()
 
     # only add new SO if it doesn't exist
     # so.name concats pool & vol names separated by ':'
-    so_name = "%s:%s" % (pool,vol)
+    so_name = "%s:%s" % (pool, vol)
     try:
         so = BlockStorageObject(so_name)
     except RTSLibError:
@@ -371,6 +382,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
 
     _exports_save_config()
 
+
 def export_destroy(req, pool, vol, initiator_wwn):
     pool_check(pool)
     fm = FabricModule('iscsi')
@@ -393,7 +405,7 @@ def export_destroy(req, pool, vol, initiator_wwn):
             break
     else:
         raise TargetdError(-151, "Volume '%s' not found in %s exports" %
-                          (vol, initiator_wwn))
+                                 (vol, initiator_wwn))
 
     # Clean up tree if branch has no leaf
     if not len(list(na.mapped_luns)):
@@ -409,16 +421,17 @@ def export_destroy(req, pool, vol, initiator_wwn):
 def pools(req):
     results = []
 
-    for k,v in config['pools'].items():
+    for k, v in config['pools'].items():
         if v['type'] == 'block':
             with vgopen(k) as vg:
                 results.append(dict(name=vg.getName(), size=vg.getSize(),
-                                free_size=vg.getFreeSize(), type='block'))
+                                    free_size=vg.getFreeSize(), type='block'))
         else:
             total, free = fs_space_values(k)
             results.append(dict(name=k, size=total, free_size=free, type='fs'))
 
     return results
+
 
 def fs(req):
     fs = []
@@ -437,7 +450,7 @@ def fs(req):
                     if len(data):
                         (total, free) = fs_space_values(full_path)
                         for e in data:
-                            fs.append(dict(name=e[10],uuid=e[8],
+                            fs.append(dict(name=e[10], uuid=e[8],
                                            total_space=total, free_space=free,
                                            pool=k))
                     break
@@ -495,7 +508,6 @@ def _get_fs_by_uuid(req, fs_uuid):
 
 
 def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs=None):
-
     if fs is None:
         fs = _get_fs_by_uuid(req, fs_uuid)
 
@@ -505,6 +517,7 @@ def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs=None):
         if s['uuid'] == ss_uuid:
             return s
     return None
+
 
 def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
     fs = _get_fs_by_uuid(req, fs_uuid)
@@ -536,6 +549,7 @@ def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
 
     return None
 
+
 def async_list(req):
     """
     Return a list of ongoing processes. Processes that have terminated with an
@@ -552,6 +566,7 @@ def async_list(req):
 async_id_lock = Lock()
 async_id = 100
 
+
 def new_async_id():
     global async_id
     with async_id_lock:
@@ -564,6 +579,7 @@ long_op_status_lock = Lock()
 # async_id -> (code, pct_complete)
 long_op_status = dict()
 
+
 def async_status(req, code, pct_complete=None):
     """
     update a global array with status of ongoing ops.
@@ -572,6 +588,7 @@ def async_status(req, code, pct_complete=None):
     """
     with long_op_status_lock:
         long_op_status[req.async_id] = (code, pct_complete)
+
 
 def complete_if_async(req, code):
     """
@@ -600,11 +617,10 @@ mapping = dict(
     ss_list=ss,
     fs_snapshot=fs_snapshot,
     fs_snapshot_delete=fs_snapshot_delete
-    )
+)
 
 
 class TargetHandler(BaseHTTPRequestHandler):
-
     def log_request(self, code='-', size='-'):
         # override base class - don't log good requests
         pass
@@ -694,8 +710,10 @@ class TargetHandler(BaseHTTPRequestHandler):
             # wfile is buffered, need to do this to flush the response
             self.connection.shutdown(socket.SHUT_WR)
 
+
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer, object):
     """Handle requests in a separate thread."""
+
 
 class TLSThreadedHTTPServer(tlslite.TLSSocketServerMixIn, ThreadedHTTPServer):
     """Also use TLS to encrypt the connection"""
