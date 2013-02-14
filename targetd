@@ -188,6 +188,12 @@ def export_create(req, pool, vol, initiator_wwn, lun):
         so = BlockStorageObject(so_name, dev="/dev/%s/%s" % (pool, vol))
         so.wwn = vol_serial
 
+    # export useful scsi model if kernel > 3.8
+    try:
+        so.set_attribute("emulate_model_alias", 1)
+    except RTSLibError:
+        pass
+
     fm = FabricModule('iscsi')
     t = Target(fm, config['target_name'])
     tpg = TPG(t, 1)
