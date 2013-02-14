@@ -41,7 +41,9 @@ setproctitle.setproctitle("targetd")
 config_path = "/etc/target/targetd.yaml"
 
 default_config = dict(
-    pool_name = "vg-targetd",
+    #TODO: We need to add in uuid lookup and verification to ensure
+    #that the correct block device or fs is being used.
+    pools = { 'vg-targetd' : { 'uuid':None, 'type':'block'}},
     user = "admin",
     password = "targetd",
     target_name = "iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname(),
@@ -65,8 +67,10 @@ if os.getuid() != 0:
     sys.exit(-1)
 
 # fail early if can't access vg
-test_vg = lvm.vgOpen(config['pool_name'], "w")
-test_vg.close()
+for k,v in config['pools'].items():
+    if v['type'] == "block":
+        test_vg = lvm.vgOpen(k)
+        test_vg.close()
 
 #
 # Helper function to check/close vg for us.
@@ -77,13 +81,22 @@ def vgopen(pool_name):
     with contextlib.closing(lvm.vgOpen(pool_name, "w")) as vg:
         yield vg
 
+def fs_space_values(mount_point):
+    """
+    Return a tuple (total, free) from the specified path
+    """
+    st = os.statvfs(mount_point)
+    free = (st.f_bavail * st.f_frsize)
+    total = (st.f_blocks * st.f_frsize)
+    return total, free
+
 def pool_check(pool_name):
     """
     pool_name *cannot* be trusted, funcs taking a pool param must call
     this or vgopen() to ensure passed-in pool name is one targetd has
     been configured to use.
     """
-    if pool_name != config['pool_name']:
+    if pool_name not in config['pools']:
         raise IOError("Invalid pool name")
 
 def volumes(req, pool):
@@ -256,9 +269,18 @@ def export_destroy(req, pool, vol, initiator_wwn):
     _exports_save_config()
 
 def pools(req):
-    with vgopen(config['pool_name']) as vg:
-        # only support 1 vg for now
-        return [dict(name=vg.getName(), size=vg.getSize(), free_size=vg.getFreeSize())]
+    results = []
+
+    for k,v in config['pools'].items():
+        if v['type'] == 'block':
+            with vgopen(k) as vg:
+                results.append(dict(name=vg.getName(), size=vg.getSize(),
+                                free_size=vg.getFreeSize()))
+        else:
+            total, free = fs_space_values(k)
+            results.append(dict(name=k, size=total, free_size=free))
+
+    return results
 
 def async_list(req):
     """
