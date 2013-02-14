@@ -253,13 +253,14 @@ def fs_subvolume_delete(path):
     invoke([fs_cmd, 'subvolume', 'delete', path])
 
 
-def fs_destroy(req, pool, uuid, name):
-    pool_check(pool)
+def fs_destroy(req, uuid):
     #Check to see if this file system has any read-only snapshots, if yes then
     #delete.  The API requires a FS to list its RO copies, we may want to
     #reconsider this decision.
 
-    base_snapshot_dir = os.path.join(pool, ss_path, name)
+    fs = _get_fs_by_uuid(req, uuid)
+
+    base_snapshot_dir = os.path.join(fs['pool'], ss_path, fs['name'])
 
     snapshots = ss(req, uuid)
     for s in snapshots:
@@ -268,7 +269,7 @@ def fs_destroy(req, pool, uuid, name):
     if os.path.exists(base_snapshot_dir):
         fs_subvolume_delete(base_snapshot_dir)
 
-    fs_subvolume_delete(os.path.join(pool, fs_path, name))
+    fs_subvolume_delete(os.path.join(fs['pool'], fs_path, fs['name']))
 
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
