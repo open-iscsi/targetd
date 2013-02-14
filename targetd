@@ -53,7 +53,7 @@ default_config = dict(
 config = {}
 if os.path.isfile(config_path):
     config = yaml.safe_load(open(config_path).read())
-    if config == None:
+    if config is None:
         config = {}
 
 for key, value in default_config.iteritems():
@@ -78,11 +78,11 @@ def vgopen(pool_name):
         yield vg
 
 def pool_check(pool_name):
-    '''
+    """
     pool_name *cannot* be trusted, funcs taking a pool param must call
     this or vgopen() to ensure passed-in pool name is one targetd has
     been configured to use.
-    '''
+    """
     if pool_name != config['pool_name']:
         raise IOError("Invalid pool name")
 
@@ -144,7 +144,7 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
         complete_if_async(req, 0)
 
     except:
-        destroy(req, vol_new)
+        destroy(req, pool, vol_new)
         raise
 
 def export_list(req):
@@ -261,10 +261,10 @@ def pools(req):
         return [dict(name=vg.getName(), size=vg.getSize(), free_size=vg.getFreeSize())]
 
 def async_list(req):
-    '''
+    """
     Return a list of ongoing processes. Processes that have terminated with an
     error are returned once and then delisted.
-    '''
+    """
     with long_op_status_lock:
         status_dict = long_op_status.copy()
         for key, item in long_op_status:
@@ -289,18 +289,18 @@ long_op_status_lock = Lock()
 long_op_status = dict()
 
 def async_status(req, code, pct_complete=None):
-    '''
+    """
     update a global array with status of ongoing ops.
     code: 0 if ok, or -err
     pct_complete: percent complete, integer 0-100
-    '''
+    """
     with long_op_status_lock:
         long_op_status[req.async_id] = (code, pct_complete)
 
 def complete_if_async(req, code):
-    '''
+    """
     Ongoing op is done, remove status if succeeded
-    '''
+    """
     if req.async_id:
         with long_op_status_lock:
             if not code:
@@ -329,6 +329,8 @@ class TargetHandler(BaseHTTPRequestHandler):
     def do_POST(self):
 
         self.async_id = None
+        rpcdata = ""
+        error = None
 
         # get basic auth string, strip "Basic "
         try:
@@ -433,17 +435,21 @@ class TLSThreadedHTTPServer(tlslite.TLSSocketServerMixIn, ThreadedHTTPServer):
             return False
 
 
-if config['ssl']:
-    server_class = TLSThreadedHTTPServer
-    note = "(TLS yes)"
-else:
-    server_class = ThreadedHTTPServer
-    note = "(TLS no)"
+if __name__ == "__main__":
+    server = None
 
-try:
-    server = server_class(('', 18700), TargetHandler)
-    print "started server", note
-    server.serve_forever()
-except KeyboardInterrupt:
-    print "SIGINT received, shutting down"
-    server.socket.close()
+    if config['ssl']:
+        server_class = TLSThreadedHTTPServer
+        note = "(TLS yes)"
+    else:
+        server_class = ThreadedHTTPServer
+        note = "(TLS no)"
+
+    try:
+        server = server_class(('', 18700), TargetHandler)
+        print "started server", note
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print "SIGINT received, shutting down"
+        if server is not None:
+            server.socket.close()
