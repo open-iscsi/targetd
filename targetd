@@ -34,7 +34,7 @@ import yaml
 import time
 from targetcli import UIRoot
 from configshell import ConfigShell
-import tlslite
+import ssl
 from subprocess import Popen, PIPE
 
 
@@ -721,33 +721,17 @@ class TargetHandler(BaseHTTPRequestHandler):
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer, object):
     """Handle requests in a separate thread."""
 
-
-class TLSThreadedHTTPServer(tlslite.TLSSocketServerMixIn, ThreadedHTTPServer):
+class TLSThreadedHTTPServer(ThreadedHTTPServer):
     """Also use TLS to encrypt the connection"""
 
-    def __init__(self, *args, **kwargs):
-        super(TLSThreadedHTTPServer, self).__init__(*args, **kwargs)
-        s = open(config['ssl_cert']).read()
-        x509 = tlslite.X509()
-        x509.parse(s)
-        self.certChain = tlslite.X509CertChain([x509])
-
-        s = open(config['ssl_key']).read()
-        self.privateKey = tlslite.parsePEMKey(s, private=True)
-
-        self.sessionCache = tlslite.SessionCache()
-
-    def handshake(self, tlsConnection):
-        try:
-            tlsConnection.handshakeServer(certChain=self.certChain,
-                                          privateKey=self.privateKey,
-                                          sessionCache=self.sessionCache)
-            tlsConnection.ignoreAbruptClose = True
-            return True
-        except tlslite.TLSError, error:
-            print "Handshake failure:", str(error)
-            return False
-
+    def finish_request(self, sock, addr):
+        sockssl = ssl.wrap_socket(
+            sock, server_side=True,
+            keyfile=config["ssl_key"],
+            certfile=config["ssl_cert"],
+            ciphers="HIGH:-aNULL:-eNULL:-PSK",
+            suppress_ragged_eofs=True)
+        return self.RequestHandlerClass(sockssl, addr, self)
 
 if __name__ == "__main__":
     server = None
