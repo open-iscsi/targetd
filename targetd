@@ -69,7 +69,7 @@ default_config = dict(
     #TODO: It would be good to do uuid verification before changing storage
     pools={'vg-targetd': {'uuid': None, 'type': 'block'}},
     user="admin",
-    password="targetd",
+    # security: no default password
     target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname(),
     ssl=False,
     ssl_cert="/etc/target/targetd_cert.pem",
@@ -119,6 +119,10 @@ for key, value in default_config.iteritems():
 
 if os.getuid() != 0:
     print "targetd must run as root."
+    sys.exit(-1)
+
+if not config.get('password', None):
+    print "password not set in %s, aborting" % config_path
     sys.exit(-1)
 
 # fail early if can't access vg
