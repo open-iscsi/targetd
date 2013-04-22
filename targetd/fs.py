@@ -292,7 +292,7 @@ def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
         dest = os.path.join(fs['pool'], fs_path, dest_fs_name)
     else:
         source = os.path.join(fs['pool'], fs_path, fs['name'])
-        dest = os.path.join(base, dest_fs_name)
+        dest = os.path.join(fs['pool'], fs_path, dest_fs_name)
 
     if os.path.exists(dest):
         raise TargetdError(-51, "Filesystem with that name exists")
