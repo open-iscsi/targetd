@@ -151,7 +151,6 @@ def fs_snapshot(req, fs_uuid, dest_ss_name):
             raise TargetdError(-53, "Snapshot already exists with that name")
 
         invoke([fs_cmd, 'subvolume', 'snapshot', '-r', source_path, dest_path])
-    return None
 
 
 def fs_snapshot_delete(req, fs_uuid, ss_uuid):
@@ -263,8 +262,6 @@ def _get_fs_by_uuid(req, fs_uuid):
         if f['uuid'] == fs_uuid:
             return f
 
-    return None
-
 
 def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs=None):
     if fs is None:
@@ -273,8 +270,6 @@ def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs=None):
     for s in ss(req, fs_uuid, fs):
         if s['uuid'] == ss_uuid:
             return s
-
-    return None
 
 
 def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
