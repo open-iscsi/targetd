@@ -29,8 +29,8 @@ import ssl
 config_path = "/etc/target/targetd.yaml"
 
 default_config = dict(
-    #TODO: It would be good to do uuid verification before changing storage
-    pools={'vg-targetd': {'uuid': None, 'type': 'block'}},
+    block_pools = ['vg-targetd']
+    fs_pools = []
     user="admin",
     # security: no default password
     target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname(),
@@ -230,6 +230,15 @@ def load_config(config_path):
         if key not in config:
             config[key] = value
 
+    # compat: handle old single-pool config option
+    if 'pool_name' in config:
+        config['block_pools'].append(config['pool_name'])
+        del config['pool_name']
+
+    # uniquify pool lists
+    config['block_pools'] = set(config['block_pools'])
+    config['fs_pools'] = set(config['fs_pools'])
+
     if not config.get('password', None):
         print "password not set in %s" % config_path
         raise AttributeError
@@ -249,8 +258,8 @@ def main():
     import block
     import fs
 
-    mapping.update(block.initialize())
-    mapping.update(fs.initialize())
+    mapping.update(block.initialize(config))
+    mapping.update(fs.initialize(config))
 
     if config['ssl']:
         server_class = TLSThreadedHTTPServer

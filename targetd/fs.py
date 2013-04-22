@@ -19,7 +19,7 @@
 import os
 import time
 from subprocess import Popen, PIPE
-from main import config, TargetdError
+from main import TargetdError
 
 
 # Notes:
@@ -44,18 +44,21 @@ ss_path = "targetd_ss"
 fs_cmd = 'btrfs'
 
 
-def initialize():
-    # fail early if can't access vg
-    for k, v in config['pools'].items():
-        if v['type'] == "fs":
-            # Make sure we have the appropriate subvolumes available
-            dirs = [os.path.join(k, fs_path), os.path.join(k, ss_path)]
-            for d in dirs:
-                try:
-                    create_sub_volume(d)
-                except TargetdError, e:
-                    print 'Unable to create required subvolumes!\n', e.msg
-                    raise
+pools = []
+
+def initialize(config_dict):
+
+    global pools
+    pools = config_dict['fs_pools']
+
+    for pool in pools:
+        # Make sure we have the appropriate subvolumes available
+        try:
+            create_sub_volume(os.path.join(pool, fs_path))
+            create_sub_volume(os.path.join(pool, ss_path))
+        except TargetdError, e:
+            print 'Unable to create required subvolumes\n', e.msg
+            raise
 
     return dict(
         fs_list=fs,
@@ -116,25 +119,22 @@ def fs_space_values(mount_point):
 def pool_check(pool_name):
     """
     pool_name *cannot* be trusted, funcs taking a pool param must call
-    this or vgopen() to ensure passed-in pool name is one targetd has
+    this or to ensure passed-in pool name is one targetd has
     been configured to use.
     """
-    if pool_name not in config['pools']:
-        raise TargetdError(-110, "Invalid pool")
+    if pool_name not in pools:
+        raise TargetdError(-110, "Invalid filesystem pool")
 
 
 def fs_create(req, pool_name, name, size_bytes):
     pool_check(pool_name)
 
-    if config['pools'][pool_name]['type'] == 'fs':
-        full_path = os.path.join(pool_name, fs_path, name)
+    full_path = os.path.join(pool_name, fs_path, name)
 
-        if not os.path.exists(full_path):
-            invoke([fs_cmd, 'subvolume', 'create', full_path])
-        else:
-            raise TargetdError(-53, 'FS already exists')
+    if not os.path.exists(full_path):
+        invoke([fs_cmd, 'subvolume', 'create', full_path])
     else:
-        raise TargetdError(-110, "Pool not appropriate for FS creation")
+        raise TargetdError(-53, 'FS already exists')
 
 
 def fs_snapshot(req, fs_uuid, dest_ss_name):
@@ -148,7 +148,7 @@ def fs_snapshot(req, fs_uuid, dest_ss_name):
         create_sub_volume(dest_base)
 
         if os.path.exists(dest_path):
-            raise TargetdError(-53, "Snapshot already exists with that name!")
+            raise TargetdError(-53, "Snapshot already exists with that name")
 
         invoke([fs_cmd, 'subvolume', 'snapshot', '-r', source_path, dest_path])
     return None
@@ -188,42 +188,40 @@ def fs_destroy(req, uuid):
 def fs_pools(req):
     results = []
 
-    for k, v in config['pools'].items():
-        if v['type'] == 'fs':
-            total, free = fs_space_values(k)
-            results.append(dict(name=k, size=total, free_size=free, type='fs'))
+    for pool in pools:
+        total, free = fs_space_values(pool)
+        results.append(dict(name=pool, size=total, free_size=free, type='fs'))
 
     return results
 
 
 def fs(req):
-    fs = []
+    fs_list = []
 
-    for k, v in config['pools'].items():
-        if v['type'] == 'fs':
-            full_path = os.path.join(k, fs_path)
+    for pool in pools:
+        full_path = os.path.join(pool, fs_path)
 
-            #TODO take out this loop, used to handle bug in btrfs
-            #ERROR: Failed to lookup path for root 0 - No such file or directory
-            while True:
-                result, out, err = invoke([fs_cmd, 'subvolume', 'list', '-u',
-                                           full_path], False)
-                if result == 0:
-                    data = split_stdout(out)
-                    if len(data):
-                        (total, free) = fs_space_values(full_path)
-                        for e in data:
-                            fs.append(dict(name=e[10], uuid=e[8],
-                                           total_space=total, free_space=free,
-                                           pool=k))
-                    break
-                elif result == 19:
-                    time.sleep(1)
-                    continue
-                else:
-                    raise TargetdError(-303, "Unexpected exit code %d" % result)
+        #TODO take out this loop, used to handle bug in btrfs
+        #ERROR: Failed to lookup path for root 0 - No such file or directory
+        while True:
+            result, out, err = invoke([fs_cmd, 'subvolume', 'list', '-u',
+                                       full_path], False)
+            if result == 0:
+                data = split_stdout(out)
+                if len(data):
+                    (total, free) = fs_space_values(full_path)
+                    for e in data:
+                        fs_list.append(dict(name=e[10], uuid=e[8],
+                                       total_space=total, free_space=free,
+                                       pool=pool))
+                break
+            elif result == 19:
+                time.sleep(1)
+                continue
+            else:
+                raise TargetdError(-303, "Unexpected exit code %d" % result)
 
-    return fs
+    return fs_list
 
 
 def ss(req, fs_uuid, fs_cache=None):
@@ -261,8 +259,7 @@ def ss(req, fs_uuid, fs_cache=None):
 
 
 def _get_fs_by_uuid(req, fs_uuid):
-    current_fs = fs(req)
-    for f in current_fs:
+    for f in fs(req):
         if f['uuid'] == fs_uuid:
             return f
 
@@ -273,41 +270,31 @@ def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs=None):
     if fs is None:
         fs = _get_fs_by_uuid(req, fs_uuid)
 
-    snapshots = ss(req, fs_uuid, fs)
-
-    for s in snapshots:
+    for s in ss(req, fs_uuid, fs):
         if s['uuid'] == ss_uuid:
             return s
+
     return None
 
 
 def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
     fs = _get_fs_by_uuid(req, fs_uuid)
 
-    if fs and not snapshot_id:
-        base = os.path.join(fs['pool'], fs_path)
-        dest = os.path.join(base, dest_fs_name)
-        if os.path.exists(dest):
-            raise TargetdError(-51, "Filesystem with that name exists!")
+    if not fs:
+        raise TargetdError(-104, "fs_uuid not found")
 
-        invoke([fs_cmd, 'subvolume', 'snapshot', os.path.join(base, fs['name']),
-                dest])
-    elif fs and snapshot_id:
+    if snapshot_id:
         snapshot = _get_ss_by_uuid(req, fs_uuid, snapshot_id)
-        base = os.path.join(fs['pool'], fs_path)
-
-        if snapshot:
-            source = os.path.join(fs['pool'], ss_path, fs['name'],
-                                  snapshot['name'])
-            dest = os.path.join(base, dest_fs_name)
-
-            if os.path.exists(dest):
-                raise TargetdError(-51, "Filesystem with that name exists!")
-
-            invoke([fs_cmd, 'subvolume', 'snapshot', source, dest])
-        else:
+        if not snapshot:
             raise TargetdError(-112, "snapshot not found")
-    else:
-        raise TargetdError(-104, "fs_uuid not found!")
 
-    return None
+        source = os.path.join(fs['pool'], ss_path, fs['name'], snapshot['name'])
+        dest = os.path.join(fs['pool'], fs_path, dest_fs_name)
+    else:
+        source = os.path.join(fs['pool'], fs_path, fs['name'])
+        dest = os.path.join(base, dest_fs_name)
+
+    if os.path.exists(dest):
+        raise TargetdError(-51, "Filesystem with that name exists")
+
+    invoke([fs_cmd, 'subvolume', 'snapshot', source, dest])

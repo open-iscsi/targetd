@@ -27,13 +27,16 @@ from main import config, TargetdError
 from utils import ignored
 
 
+pools = []
+target_name = None
+
 def pool_check(pool_name):
     """
     pool_name *cannot* be trusted, funcs taking a pool param must call
     this or vgopen() to ensure passed-in pool name is one targetd has
     been configured to use.
     """
-    if pool_name not in config['pools']:
+    if pool_name not in pools:
         raise TargetdError(-110, "Invalid pool")
 
 
@@ -46,13 +49,21 @@ def vgopen(pool_name):
     with contextlib.closing(lvm.vgOpen(pool_name, "w")) as vg:
         yield vg
 
+#
+# config_dict must include block_pools and target_name or we blow up
+#
+def initialize(config_dict):
 
-def initialize():
-    # fail early if can't access vg
-    for k, v in config['pools'].items():
-        if v['type'] == "block":
-            test_vg = lvm.vgOpen(k)
-            test_vg.close()
+    global pools
+    pools = config_dict['block_pools']
+
+    global target_name
+    target_name = config_dict['target_name']
+
+    # fail early if can't access any vg
+    for pool in pools:
+        test_vg = lvm.vgOpen(pool)
+        test_vg.close()
 
     return dict(
         vol_list=volumes,
@@ -83,7 +94,7 @@ def create(req, pool, name, size):
 def destroy(req, pool, name):
     with ignored(RTSLibNotInCFS):
         fm = FabricModule('iscsi')
-        t = Target(fm, config['target_name'], mode='lookup')
+        t = Target(fm, target_name, mode='lookup')
         tpg = TPG(t, 1, mode='lookup')
 
         so_name = "%s:%s" % (pool, name)
@@ -134,7 +145,7 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
 def export_list(req):
     try:
         fm = FabricModule('iscsi')
-        t = Target(fm, config['target_name'], mode='lookup')
+        t = Target(fm, target_name, mode='lookup')
         tpg = TPG(t, 1, mode='lookup')
     except RTSLibNotInCFS:
         return []
@@ -180,7 +191,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
         so.set_attribute("emulate_model_alias", '1')
 
     fm = FabricModule('iscsi')
-    t = Target(fm, config['target_name'])
+    t = Target(fm, target_name)
     tpg = TPG(t, 1)
     tpg.enable = True
     tpg.set_attribute("authentication", '0')
@@ -210,7 +221,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
 def export_destroy(req, pool, vol, initiator_wwn):
     pool_check(pool)
     fm = FabricModule('iscsi')
-    t = Target(fm, config['target_name'])
+    t = Target(fm, target_name)
     tpg = TPG(t, 1)
     na = NodeACL(tpg, initiator_wwn)
 
