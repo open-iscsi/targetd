@@ -73,7 +73,6 @@ def initialize(config_dict):
         export_list=export_list,
         export_create=export_create,
         export_destroy=export_destroy,
-        pool_list=pools,
     )
 
 

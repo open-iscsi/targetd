@@ -23,14 +23,16 @@ import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 from threading import Lock
+import yaml
+import itertools
 import socket
 import ssl
 
 config_path = "/etc/target/targetd.yaml"
 
 default_config = dict(
-    block_pools = ['vg-targetd']
-    fs_pools = []
+    block_pools = ['vg-targetd'],
+    fs_pools = [],
     user="admin",
     # security: no default password
     target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname(),
@@ -244,6 +246,20 @@ def load_config(config_path):
         raise AttributeError
     
 
+def update_mapping():
+    # wait until now so submodules can import 'main' safely
+    import block
+    import fs
+
+    mapping.update(block.initialize(config))
+    mapping.update(fs.initialize(config))
+
+    # one method requires output from both modules
+    def pool_list(req):
+        return list(itertools.chain(block.block_pools(req), fs.fs_pools(req)))
+
+    mapping['pool_list'] = pool_list
+
 def main():
     server = None
 
@@ -254,12 +270,7 @@ def main():
 
     setproctitle.setproctitle("targetd")
 
-    # wait until now so submodules can import 'main' safely
-    import block
-    import fs
-
-    mapping.update(block.initialize(config))
-    mapping.update(fs.initialize(config))
+    update_mapping()
 
     if config['ssl']:
         server_class = TLSThreadedHTTPServer
