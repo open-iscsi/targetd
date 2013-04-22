@@ -257,11 +257,10 @@ def export_destroy(req, pool, vol, initiator_wwn):
 def block_pools(req):
     results = []
 
-    for k, v in config['pools'].items():
-        if v['type'] == 'block':
-            with vgopen(k) as vg:
+    for pool in pools:
+            with vgopen(pool) as vg:
                 results.append(dict(name=vg.getName(), size=vg.getSize(),
-                                    free_size=vg.getFreeSize(), type='block'))
+                                    free_size=vg.getFreeSize(), type='block',
+                                    uuid=vg.getUuid()))
 
     return results
-
