@@ -11,14 +11,16 @@ those file systems via NFS/CIFS (work in progress).
 
 targetd development
 -------------------
-Contributions are welcome. targetd is licensed
-under the GPLv3. Please use target-devel@vger.kernel.org for
-discussion. Source repo and bug tracking is at
-https://github.com/agrover/targetd.
+targetd is licensed under the GPLv3. Contributions are welcome.
+ 
+ * Mailing list: [targetd-devel](https://lists.fedorahosted.org/mailman/listinfo/targetd-devel)
+ * Source repo: [GitHub](https://github.com/agrover/targetd)
+ * Bugs: [GitHub](https://github.com/agrover/targetd/issues) or [Trac](https://fedorahosted.org/targetd/)
+ * Tarballs: [fedorahosted](https://fedorahosted.org/releases/t/a/targetd/)
 
 **NOTE: targetd is STORAGE-RELATED software, and may be used to
-  remove volumes and file systems without warning from the LVM volume groups
-  and mount points it is configured to use. Please take care in its use.**
+  remove volumes and file systems without warning from the resources it is
+  configured to use. Please take care in its use.**
 
 Getting Started
 ---------------
@@ -28,7 +30,6 @@ targetd has these Python library dependencies:
 * [python-lvm](https://github.com/agrover/python-lvm) 1.2.2+
 * [python-setproctitle](https://github.com/dvarrazzo/py-setproctitle)
 * [PyYAML](http://pyyaml.org/)
-* [python-tlslite](http://trevp.net/tlslite/)
 
 All of these are available in Fedora Rawhide.
 
