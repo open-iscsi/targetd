@@ -1,5 +1,4 @@
-targetd
-=======
+U![targetd logo](https://fedorahosted.org/targetd/raw-attachment/wiki/Logo/targetd.png)
 
 Remote configuration of a LIO-based storage appliance
 -----------------------------------------------------
@@ -8,6 +7,9 @@ supports an HTTP/jsonrpc-2.0 interface to let a remote administrator
 allocate volumes from an LVM volume group, and export those volumes
 over iSCSI.  It also has the ability to create remote file systems and export
 those file systems via NFS/CIFS (work in progress).
+
+targetd's sister project is [libstoragemanagement](http://sourceforge.net/projects/libstoragemgmt/),
+which allows admins to configure storage arrays (including targetd) in an array-neutral manner.
 
 targetd development
 -------------------
