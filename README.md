@@ -1,4 +1,4 @@
-U![targetd logo](https://fedorahosted.org/targetd/raw-attachment/wiki/Logo/targetd.png)
+![targetd logo](https://fedorahosted.org/targetd/raw-attachment/wiki/Logo/targetd.png)
 
 Remote configuration of a LIO-based storage appliance
 -----------------------------------------------------
