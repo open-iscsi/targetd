@@ -27,9 +27,6 @@ from main import config, TargetdError
 from utils import ignored
 
 
-pools = []
-target_name = None
-
 def pool_check(pool_name):
     """
     pool_name *cannot* be trusted, funcs taking a pool param must call
@@ -49,6 +46,14 @@ def vgopen(pool_name):
     with contextlib.closing(lvm.vgOpen(pool_name, "w")) as vg:
         yield vg
 
+
+pools = []
+target_name = None
+
+# Auth info for mutual auth
+mutual_auth_user = ''
+mutual_auth_password = ''
+
 #
 # config_dict must include block_pools and target_name or we blow up
 #
@@ -59,6 +64,12 @@ def initialize(config_dict):
 
     global target_name
     target_name = config_dict['target_name']
+
+    global mutual_auth_user
+    mutual_auth_user = config_dict.get('mutual_auth_user', '')
+
+    global mutual_auth_password
+    mutual_auth_password = config_dict.get('mutual_auth_password', '')
 
     # fail early if can't access any vg
     for pool in pools:
@@ -73,6 +84,7 @@ def initialize(config_dict):
         export_list=export_list,
         export_create=export_create,
         export_destroy=export_destroy,
+        initiator_set_auth=initiator_set_auth,
     )
 
 
@@ -249,6 +261,29 @@ def export_destroy(req, pool, vol, initiator_wwn):
             tpg.delete()
             if not len(list(t.tpgs)):
                 t.delete()
+
+    _exports_save_config()
+
+
+def initiator_set_auth(req, initiator_wwn, username, password, mutual):
+    fm = FabricModule('iscsi')
+    t = Target(fm, target_name)
+    tpg = TPG(t, 1)
+    na = NodeACL(tpg, initiator_wwn)
+
+    if not username or not password:
+        # rtslib treats '' as its NULL value for these
+        username = password = ''
+
+    na.chap_userid = userid
+    na.chap_password = password
+
+    if mutual:
+        na.chap_mutual_userid = target_auth_userid
+        na.chap_mutual_password = target_auth_password
+    else:
+        na.chap_mutual_userid = ''
+        na.chap_mutual_password = ''
 
     _exports_save_config()
 
