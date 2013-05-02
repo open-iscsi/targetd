@@ -46,18 +46,11 @@ an example:
     ssl: false
     target_name: iqn.2003-01.org.example.mach1:1234
 
-    #Note: The uuid is currently not being used and can be set to null,
-    #it will eventually be used for more positive storage identification.
-    #You can have as many pools as you wish.  Use the form
-    #(white space sensitive):
-    #<sp><sp><name>:<sp>{type:<sp>[fs|block],<sp>uuid:<sp><uuid>}
-    pools:
-      vg-targetd: {type: block, uuid: null}
-      vg-targetd-too: {type: block, uuid: c7tiaU-YTF3-v1O5-zVFA-55kq-czvK-DCmyUg}
-      /mnt/btrfs: {type: fs, uuid: c1ac7716-2a6e-42fe-8cbf-807eeaaf3ebc}
+    block_pools: [vg-targetd, vg-targetd-too]
+    fs_pools: [/mnt/btrfs]
 
-targetd defaults to using the "vg-targetd" volume group, and username 'admin'
-password 'targetd' for the HTTP jsonrpc interface.
+targetd defaults to using the "vg-targetd" volume group, and username 'admin'.
+The admin password does not have a default -- each installation must set it.
 
 Then, run `sudo ./targetd.py`.
 
