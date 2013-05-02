@@ -1,4 +1,4 @@
-targetd API, version 0.4
+targetd API, version 0.5
 ========================
 
 Summary
@@ -90,6 +90,24 @@ initiator, and maps it to logical unit number `lun`.
 
 ### export_destroy(pool, vol, initiator_wwn)
 Removes an export of `vol` in `pool` to `initiator_wwn`.
+
+Initiator operations
+--------------------
+### initiator_set_auth(initiator_wwn, username, password, mutual)
+Sets the login credentials that the initiator will use to login and
+access luns exported by 'export_create'. 'initiator_wwn', 'username',
+and 'password' are all strings. 'username' and 'password' may be
+'null'. If either (or both) are 'null', initiator-to-target
+authentication is disabled.
+
+The 'mutual' parameter is a boolean indicating if the target should
+attempt to authenticate to the initiator, a.k.a. "mutual
+authentication". This may be set even if initiator-to-target
+authentication is not enabled. The target's authentication credentials
+are not configured via this API.
+
+Calling this method is optional. If it is not called, exports configured
+via 'export_create' will require no authentication.
 
 File system operations
 ----------------------
