@@ -266,9 +266,6 @@ def export_destroy(req, pool, vol, initiator_wwn):
 
 
 def initiator_set_auth(req, initiator_wwn, username, password, mutual):
-    global mutual_auth_user
-    global mutual_auth_password
-
     fm = FabricModule('iscsi')
     t = Target(fm, target_name)
     tpg = TPG(t, 1)
