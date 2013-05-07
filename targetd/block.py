@@ -266,6 +266,9 @@ def export_destroy(req, pool, vol, initiator_wwn):
 
 
 def initiator_set_auth(req, initiator_wwn, username, password, mutual):
+    global mutual_auth_user
+    global mutual_auth_password
+
     fm = FabricModule('iscsi')
     t = Target(fm, target_name)
     tpg = TPG(t, 1)
@@ -275,12 +278,12 @@ def initiator_set_auth(req, initiator_wwn, username, password, mutual):
         # rtslib treats '' as its NULL value for these
         username = password = ''
 
-    na.chap_userid = userid
+    na.chap_userid = username
     na.chap_password = password
 
     if mutual:
-        na.chap_mutual_userid = target_auth_userid
-        na.chap_mutual_password = target_auth_password
+        na.chap_mutual_userid = mutual_auth_user
+        na.chap_mutual_password = mutual_auth_password
     else:
         na.chap_mutual_userid = ''
         na.chap_mutual_password = ''
