@@ -19,11 +19,10 @@ import contextlib
 from rtslib import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
                     NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS)
 import lvm
-import socket
 import time
 from targetcli import UIRoot
 from configshell import ConfigShell
-from main import config, TargetdError
+from main import TargetdError
 from utils import ignored
 
 
@@ -53,6 +52,7 @@ target_name = None
 # Auth info for mutual auth
 mutual_auth_user = ''
 mutual_auth_password = ''
+
 
 #
 # config_dict must include block_pools and target_name or we blow up
@@ -128,6 +128,8 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
 
     create(req, pool, vol_new, copy_size)
 
+    copied = 0  # Used in except, make sure exists before we catch exception
+
     try:
         src_path = "/dev/%s/%s" % (pool, vol_orig)
         dst_path = "/dev/%s/%s" % (pool, vol_new)
@@ -135,7 +137,6 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
         start_time = time.clock()
         with open(src_path, 'rb') as fsrc:
             with open(dst_path, 'wb') as fdst:
-                copied = 0
                 while copied != copy_size:
                     buf = fsrc.read(1024 * 1024)
                     if not buf:
@@ -144,7 +145,8 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
                     copied += len(buf)
                     if time.clock() > (start_time + timeout):
                         req.mark_async()
-                        req.async_status(0, int((float(copied) / copy_size) * 100))
+                        req.async_status(0,
+                                         int((float(copied) / copy_size) * 100))
         req.complete_maybe_async(0)
 
     except Exception, e:
