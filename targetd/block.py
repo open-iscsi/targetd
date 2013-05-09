@@ -49,11 +49,6 @@ def vgopen(pool_name):
 pools = []
 target_name = None
 
-# Auth info for mutual auth
-mutual_auth_user = ''
-mutual_auth_password = ''
-
-
 #
 # config_dict must include block_pools and target_name or we blow up
 #
@@ -64,12 +59,6 @@ def initialize(config_dict):
 
     global target_name
     target_name = config_dict['target_name']
-
-    global mutual_auth_user
-    mutual_auth_user = config_dict.get('mutual_auth_user', '')
-
-    global mutual_auth_password
-    mutual_auth_password = config_dict.get('mutual_auth_password', '')
 
     # fail early if can't access any vg
     for pool in pools:
@@ -267,25 +256,24 @@ def export_destroy(req, pool, vol, initiator_wwn):
     _exports_save_config()
 
 
-def initiator_set_auth(req, initiator_wwn, username, password, mutual):
+def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user, out_pass):
     fm = FabricModule('iscsi')
     t = Target(fm, target_name)
     tpg = TPG(t, 1)
     na = NodeACL(tpg, initiator_wwn)
 
-    if not username or not password:
+    if not in_user or not in_pass:
         # rtslib treats '' as its NULL value for these
-        username = password = ''
+        in_user = in_pass = ''
 
-    na.chap_userid = username
-    na.chap_password = password
+    if not out_user or not out_pass:
+        out_user = out_pass = ''
 
-    if mutual:
-        na.chap_mutual_userid = mutual_auth_user
-        na.chap_mutual_password = mutual_auth_password
-    else:
-        na.chap_mutual_userid = ''
-        na.chap_mutual_password = ''
+    na.chap_userid = in_user
+    na.chap_password = in_pass
+
+    na.chap_mutual_userid = out_user
+    na.chap_mutual_password = out_pass
 
     _exports_save_config()
 
