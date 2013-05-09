@@ -1,5 +1,5 @@
-targetd API, version 0.5
-========================
+targetd API, version 0.5.1
+==========================
 
 Summary
 -------
@@ -93,21 +93,20 @@ Removes an export of `vol` in `pool` to `initiator_wwn`.
 
 Initiator operations
 --------------------
-### initiator_set_auth(initiator_wwn, username, password, mutual)
-Sets the login credentials that the initiator will use to login and
-access luns exported by 'export_create'. 'initiator_wwn', 'username',
-and 'password' are all strings. 'username' and 'password' may be
-'null'. If either (or both) are 'null', initiator-to-target
-authentication is disabled.
+### initiator_set_auth(initiator_wwn, in_user, in_pass, out_user, out_pass)
+Sets the inbound and outbound login credentials for the given
+initiator. 'in_user' and 'in_pass' are credentials that the initiator
+will use to login to the target and access luns exported by
+'export_create'. 'out_user' and 'out_pass' are the credentials the
+target will use to authenticate itself back to the initiator.
 
-The 'mutual' parameter is a boolean indicating if the target should
-attempt to authenticate to the initiator, a.k.a. "mutual
-authentication". This may be set even if initiator-to-target
-authentication is not enabled. The target's authentication credentials
-are not configured via this API.
+'initiator_wwn' must be set, but 'in_user', 'in_pass', 'out_user' and
+'out_pass' may be 'null'. If either or both of each directions'
+parameters are 'null', then authentication is disabled for that
+direction.
 
-Calling this method is optional. If it is not called, exports configured
-via 'export_create' will require no authentication.
+Calling this method is not required for exports to work. If it is not
+called, exports require no authentication.
 
 File system operations
 ----------------------
