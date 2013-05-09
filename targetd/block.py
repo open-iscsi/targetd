@@ -197,7 +197,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
     tpg = TPG(t, 1)
     tpg.enable = True
     tpg.set_attribute("authentication", '0')
-    np = NetworkPortal(tpg, "0.0.0.0")
+    NetworkPortal(tpg, "0.0.0.0")
     na = NodeACL(tpg, initiator_wwn)
 
     # only add tpg lun if it doesn't exist
@@ -212,10 +212,9 @@ def export_create(req, pool, vol, initiator_wwn, lun):
     # only add mapped lun if it doesn't exist
     for tmp_mlun in tpg_lun.mapped_luns:
         if tmp_mlun.mapped_lun == lun:
-            mapped_lun = tmp_mlun
             break
     else:
-        mapped_lun = MappedLUN(na, lun, tpg_lun)
+        MappedLUN(na, lun, tpg_lun)
 
     _exports_save_config()
 

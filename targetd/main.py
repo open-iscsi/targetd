@@ -28,7 +28,7 @@ import itertools
 import socket
 import ssl
 
-config_path = "/etc/target/targetd.yaml"
+default_config_path = "/etc/target/targetd.yaml"
 
 default_config = dict(
     block_pools = ['vg-targetd'],
@@ -92,7 +92,7 @@ class TargetHandler(BaseHTTPRequestHandler):
         Handlers calling this must
         '''
         if not self.async_id:
-            self.async_id = _new_async_id()
+            self.async_id = self._new_async_id()
             rpcdata = json.dumps(
                 dict(error=
                      dict(
@@ -157,7 +157,7 @@ class TargetHandler(BaseHTTPRequestHandler):
                 req = json.loads(self.rfile.read(content_len))
             except ValueError:
                 # see http://www.jsonrpc.org/specification for errcodes
-                errcode = (-32700, "parse error")
+                error = (-32700, "parse error")
                 raise
 
             self.send_response(200)
@@ -264,7 +264,7 @@ def main():
     server = None
 
     try:
-        load_config(config_path)
+        load_config(default_config_path)
     except AttributeError:
         return -1
 
