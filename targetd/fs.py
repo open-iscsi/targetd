@@ -20,6 +20,7 @@ import os
 import time
 from subprocess import Popen, PIPE
 from main import TargetdError
+from nfs import Nfs, Export
 
 
 # Notes:
@@ -67,7 +68,11 @@ def initialize(config_dict):
         fs_clone=fs_clone,
         ss_list=ss,
         fs_snapshot=fs_snapshot,
-        fs_snapshot_delete=fs_snapshot_delete
+        fs_snapshot_delete=fs_snapshot_delete,
+        nfs_export_auth_list=nfs_export_auth_list,
+        nfs_export_list=nfs_export_list,
+        nfs_export_add=nfs_export_add,
+        nfs_export_remove=nfs_export_remove,
         )
 
 
@@ -194,8 +199,8 @@ def fs_pools(req):
     return results
 
 
-def fs(req):
-    fs_list = []
+def _fs_hash():
+    fs_list = {}
 
     for pool in pools:
         full_path = os.path.join(pool, fs_path)
@@ -210,9 +215,11 @@ def fs(req):
                 if len(data):
                     (total, free) = fs_space_values(full_path)
                     for e in data:
-                        fs_list.append(dict(name=e[10], uuid=e[8],
-                                       total_space=total, free_space=free,
-                                       pool=pool))
+                        sub_vol = e[10]
+                        key = full_path + '/' + sub_vol
+                        fs_list[key] = dict(name=sub_vol, uuid=e[8],
+                                            total_space=total, free_space=free,
+                                            pool=pool, full_path=key)
                 break
             elif result == 19:
                 time.sleep(1)
@@ -221,6 +228,10 @@ def fs(req):
                 raise TargetdError(-303, "Unexpected exit code %d" % result)
 
     return fs_list
+
+
+def fs(req):
+    return _fs_hash().values()
 
 
 def ss(req, fs_uuid, fs_cache=None):
@@ -293,3 +304,46 @@ def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
         raise TargetdError(-51, "Filesystem with that name exists")
 
     invoke([fs_cmd, 'subvolume', 'snapshot', source, dest])
+
+
+def nfs_export_auth_list(req):
+    return Nfs.security_options()
+
+
+def nfs_export_list(req):
+    rc = []
+    exports = Nfs.exports()
+    for e in exports:
+        rc.append(dict(host=e.host, path=e.path, options=e.options_list()))
+    return rc
+
+
+def nfs_export_add(req, host, path, export_path, options):
+
+    if export_path is not None:
+        raise TargetdError(-401, "separate export path not supported at "
+                                 "this time")
+    bit_opt = 0
+    key_opt = {}
+
+    for o in options:
+        if '=' in o:
+            k, v = o.split('=')
+            key_opt[k] = v
+        else:
+            bit_opt |= Export.bool_option[o]
+
+    Nfs.export_add(host, path, bit_opt, key_opt)
+
+
+def nfs_export_remove(req, host, path):
+    found = False
+
+    for e in Nfs.exports():
+        if e.host == host and e.path == path:
+            Nfs.export_remove(e)
+            found = True
+
+    if not found:
+        raise TargetdError(-400, "NFS export to remove not found %s:%s",
+                       (host, path))
