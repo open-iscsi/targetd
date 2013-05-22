@@ -186,15 +186,18 @@ class TargetHandler(BaseHTTPRequestHandler):
                     result = mapping[method](self)
             except KeyError:
                 error = (-32601, "method %s not found" % method)
+                traceback.print_exc(file=sys.stdout)
                 raise
             except TypeError:
                 error = (-32602, "invalid method parameter(s)")
+                traceback.print_exc(file=sys.stdout)
                 raise
             except TargetdError, td:
                 error = (td.error, td.msg)
                 raise
             except Exception, e:
                 error = (-1, "%s: %s" % (type(e).__name__, e))
+                traceback.print_exc(file=sys.stdout)
                 raise
 
             rpcdata = json.dumps(dict(result=result, id=self.id))
