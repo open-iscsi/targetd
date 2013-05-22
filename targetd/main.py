@@ -85,6 +85,7 @@ class TargetHandler(BaseHTTPRequestHandler):
 
     def _new_async_id(self):
         with async_id_lock:
+            global async_id
             new_id = async_id
             async_id += 1
         return new_id
