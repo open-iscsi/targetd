@@ -33,17 +33,19 @@ import sys
 default_config_path = "/etc/target/targetd.yaml"
 
 default_config = dict(
-    block_pools = ['vg-targetd'],
-    fs_pools = [],
+    block_pools=['vg-targetd'],
+    fs_pools=[],
     user="admin",
     # security: no default password
-    target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname(),
+    target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" %
+                socket.gethostname(),
     ssl=False,
     ssl_cert="/etc/target/targetd_cert.pem",
     ssl_key="/etc/target/targetd_key.pem",
 )
 
 config = {}
+
 
 class TargetdError(Exception):
     def __init__(self, error_code, message, *args, **kwargs):
@@ -88,11 +90,11 @@ class TargetHandler(BaseHTTPRequestHandler):
         return new_id
 
     def mark_async(self):
-        '''
+        """
         Mark a request as finishing after the given HTTP request returns.
 
         Handlers calling this must
-        '''
+        """
         if not self.async_id:
             self.async_id = self._new_async_id()
             rpcdata = json.dumps(
@@ -123,7 +125,6 @@ class TargetHandler(BaseHTTPRequestHandler):
             with long_op_status_lock:
                 if not code:
                     del long_op_status[self.async_id]
-
 
     def log_request(self, code='-', size='-'):
         # override base class - don't log good requests
@@ -199,8 +200,8 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         except:
             print 'Error data=', str(error)
-            rpcdata = json.dumps(dict(error=dict(code=error[0],
-                                                 message=error[1]), id=self.id))
+            rpcdata = json.dumps(
+                dict(error=dict(code=error[0], message=error[1]), id=self.id))
         finally:
             if not self.async_id:
                 self.wfile.write(rpcdata)
@@ -208,6 +209,7 @@ class TargetHandler(BaseHTTPRequestHandler):
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer, object):
     """Handle requests in a separate thread."""
+
 
 class TLSThreadedHTTPServer(ThreadedHTTPServer):
     """Also use TLS to encrypt the connection"""
@@ -261,6 +263,7 @@ def update_mapping():
         return list(itertools.chain(block.block_pools(req), fs.fs_pools(req)))
 
     mapping['pool_list'] = pool_list
+
 
 def main():
     server = None
