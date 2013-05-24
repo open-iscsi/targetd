@@ -1,4 +1,4 @@
-targetd API, version 0.5.1
+targetd API, version 0.5.2
 ==========================
 
 Summary
@@ -143,6 +143,24 @@ file system has the name represented by `dest_ss_name`.
 
 ### fs_snapshot_delete(fs_uuid, ss_uuid)
 Deletes the read only snapshot specified by `fs_uuid` and `ss_uuid`.
+
+NFS Export operations
+----------------------
+### nfs_export_auth_list()
+Returns an array of supported NFS client authentication mechanisms.
+
+### nfs_export_list()
+Returns an array of export objects.  Each export object contains: `host`, `path`, `options`.
+
+### nfs_export_add(host, path, options)
+Adds a NFS export given a `host`, and an export `path` to export and a list of `options`
+Options is a list of NFS export options.  Each option can be either a single value 
+eg. no_root_squash or can be a `key=value` like `sec=sys`.  See `man 5 exports` for all available
+supported options and the formats supported for `host`.
+
+### nfs_export_remove(host, path)
+Removes a NFS export given a `host` and an export `path`
+
 
 Async method calls
 ------------------
