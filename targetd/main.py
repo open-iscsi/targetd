@@ -28,6 +28,7 @@ import itertools
 import socket
 import ssl
 import traceback
+import logging as log
 import sys
 
 default_config_path = "/etc/target/targetd.yaml"
@@ -36,6 +37,7 @@ default_config = dict(
     block_pools=['vg-targetd'],
     fs_pools=[],
     user="admin",
+    log_level='info',
     # security: no default password
     target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" %
                 socket.gethostname(),
@@ -186,24 +188,24 @@ class TargetHandler(BaseHTTPRequestHandler):
                     result = mapping[method](self)
             except KeyError:
                 error = (-32601, "method %s not found" % method)
-                traceback.print_exc(file=sys.stdout)
+                log.debug(traceback.format_exc())
                 raise
             except TypeError:
                 error = (-32602, "invalid method parameter(s)")
-                traceback.print_exc(file=sys.stdout)
+                log.debug(traceback.format_exc())
                 raise
             except TargetdError, td:
                 error = (td.error, td.msg)
                 raise
             except Exception, e:
                 error = (-1, "%s: %s" % (type(e).__name__, e))
-                traceback.print_exc(file=sys.stdout)
+                log.debug(traceback.format_exc())
                 raise
 
             rpcdata = json.dumps(dict(result=result, id=self.id))
 
         except:
-            print 'Error data=', str(error)
+            log.debug('Error=%s, msg=%s' % error)
             rpcdata = json.dumps(
                 dict(error=dict(code=error[0], message=error[1]), id=self.id))
         finally:
@@ -250,8 +252,12 @@ def load_config(config_path):
     config['fs_pools'] = set(config['fs_pools'])
 
     if not config.get('password', None):
-        print "password not set in %s" % config_path
+        log.critical("password not set in %s" % config_path)
         raise AttributeError
+
+    # convert log level to int
+    config['log_level'] = getattr(log, config['log_level'].upper(), log.INFO)
+    log.basicConfig(level=config['log_level'])
     
 
 def update_mapping():
@@ -290,10 +296,10 @@ def main():
 
     try:
         server = server_class(('', 18700), TargetHandler)
-        print "started server", note
+        log.info("started server %s", note)
         server.serve_forever()
     except KeyboardInterrupt:
-        print "SIGINT received, shutting down"
+        log.info("SIGINT received, shutting down")
         if server is not None:
             server.socket.close()
         return -1

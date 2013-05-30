@@ -40,6 +40,8 @@ from nfs import Nfs, Export
 #
 # There maybe better ways of utilizing btrfs,  we shall see.
 
+import logging as log
+
 fs_path = "targetd_fs"
 ss_path = "targetd_ss"
 fs_cmd = 'btrfs'
@@ -58,7 +60,8 @@ def initialize(config_dict):
             create_sub_volume(os.path.join(pool, fs_path))
             create_sub_volume(os.path.join(pool, ss_path))
         except TargetdError, e:
-            print 'Unable to create required subvolumes\n', e.msg
+            log.error('Unable to create required subvolumes')
+            log.error(e.msg)
             raise
 
     return dict(

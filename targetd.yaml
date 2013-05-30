@@ -13,6 +13,9 @@ password:
 #user: admin
 #target_name: iqn.2003-01.org.example.mach1:1234
 
+# log level (debug, info, warning, error, critical)
+#log_level = info
+
 #ssl: false
 # if ssl is activated:
 #ssl_cert: /etc/target/targetd_cert.pem
