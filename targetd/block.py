@@ -26,13 +26,24 @@ from main import TargetdError
 from utils import ignored
 
 
+def get_vg_lv(pool_name):
+    """
+    Checks for the existence of a '/' in the pool name.  We are using this
+    as an indicator that the vg & lv refer to a thin pool.
+    """
+    if '/' in pool_name:
+        return pool_name.split('/')
+    else:
+        return pool_name, None
+
+
 def pool_check(pool_name):
     """
     pool_name *cannot* be trusted, funcs taking a pool param must call
     this or vgopen() to ensure passed-in pool name is one targetd has
     been configured to use.
     """
-    if pool_name not in pools:
+    if pool_name not in [get_vg_lv(x)[0] for x in pools]:
         raise TargetdError(-110, "Invalid pool")
 
 
@@ -62,7 +73,7 @@ def initialize(config_dict):
 
     # fail early if can't access any vg
     for pool in pools:
-        test_vg = lvm.vgOpen(pool)
+        test_vg = lvm.vgOpen(get_vg_lv(pool)[0])
         test_vg.close()
 
     return dict(
@@ -79,16 +90,22 @@ def initialize(config_dict):
 
 def volumes(req, pool):
     output = []
-    with vgopen(pool) as vg:
+    vg_name, lv_pool = get_vg_lv(pool)
+    with vgopen(vg_name) as vg:
         for lv in vg.listLVs():
-            output.append(dict(name=lv.getName(), size=lv.getSize(),
-                               uuid=lv.getUuid()))
+            if lv.getName() != lv_pool:
+                output.append(dict(name=lv.getName(), size=lv.getSize(),
+                                   uuid=lv.getUuid()))
     return output
 
 
 def create(req, pool, name, size):
-    with vgopen(pool) as vg:
-        vg.createLvLinear(name, int(size))
+    vg_name, lv_pool = get_vg_lv(pool)
+    with vgopen(vg_name) as vg:
+        if lv_pool:
+            vg.createLvThin(lv_pool, name, int(size))
+        else:
+            vg.createLvLinear(name, int(size))
 
 
 def destroy(req, pool, name):
@@ -102,7 +119,7 @@ def destroy(req, pool, name):
             raise TargetdError(-303, "Volume '%s' cannot be "
                                      "removed while exported" % name)
 
-    with vgopen(pool) as vg:
+    with vgopen(get_vg_lv(pool)[0]) as vg:
         vg.lvFromName(name).remove()
 
 
@@ -112,36 +129,45 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
     If this operation takes longer than the timeout, it will return
     an async completion and report actual status later.
     """
-    with vgopen(pool) as vg:
-        copy_size = vg.lvFromName(vol_orig).getSize()
+    vg_name, thin_pool = get_vg_lv(pool)
+    copy_size = 0
 
-    create(req, pool, vol_new, copy_size)
+    with vgopen(vg_name) as vg:
+        if thin_pool:
+            vg.lvFromName(vol_orig).snapshot(vol_new)
+        else:
+            copy_size = vg.lvFromName(vol_orig).getSize()
 
-    copied = 0  # Used in except, make sure exists before we catch exception
+    if copy_size > 0:
+        create(req, pool, vol_new, copy_size)
 
-    try:
-        src_path = "/dev/%s/%s" % (pool, vol_orig)
-        dst_path = "/dev/%s/%s" % (pool, vol_new)
+        copied = 0  # Used in except, make sure exists before we catch
+                    # exception
 
-        start_time = time.clock()
-        with open(src_path, 'rb') as fsrc:
-            with open(dst_path, 'wb') as fdst:
-                while copied != copy_size:
-                    buf = fsrc.read(1024 * 1024)
-                    if not buf:
-                        break
-                    fdst.write(buf)
-                    copied += len(buf)
-                    if time.clock() > (start_time + timeout):
-                        req.mark_async()
-                        req.async_status(0,
-                                         int((float(copied) / copy_size) * 100))
-        req.complete_maybe_async(0)
+        try:
+            src_path = "/dev/%s/%s" % (pool, vol_orig)
+            dst_path = "/dev/%s/%s" % (pool, vol_new)
 
-    except Exception, e:
-        destroy(req, pool, vol_new)
-        req.async_status(-303, int((float(copied) / copy_size) * 100))
-        raise TargetdError(-303, "Unexpected exception: %s" % (str(e)))
+            start_time = time.clock()
+            with open(src_path, 'rb') as fsrc:
+                with open(dst_path, 'wb') as fdst:
+                    while copied != copy_size:
+                        buf = fsrc.read(1024 * 1024)
+                        if not buf:
+                            break
+                        fdst.write(buf)
+                        copied += len(buf)
+                        if time.clock() > (start_time + timeout):
+                            req.mark_async()
+                            req.async_status(0,
+                                             int((float(copied) / copy_size)
+                                                 * 100))
+            req.complete_maybe_async(0)
+
+        except Exception, e:
+            destroy(req, pool, vol_new)
+            req.async_status(-303, int((float(copied) / copy_size) * 100))
+            raise TargetdError(-303, "Unexpected exception: %s" % (str(e)))
 
 
 def export_list(req):
@@ -157,7 +183,7 @@ def export_list(req):
         for mlun in na.mapped_luns:
             mlun_vg, mlun_name = \
                 mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
-            with vgopen(mlun_vg) as vg:
+            with vgopen(get_vg_lv(mlun_vg)[0]) as vg:
                 lv = vg.lvFromName(mlun_name)
                 exports.append(
                     dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
@@ -176,7 +202,7 @@ def _exports_save_config():
 
 def export_create(req, pool, vol, initiator_wwn, lun):
     # get wwn of volume so LIO can export as vpd83 info
-    with vgopen(pool) as vg:
+    with vgopen(get_vg_lv(pool)[0]) as vg:
         vol_serial = vg.lvFromName(vol).getUuid()
 
     # only add new SO if it doesn't exist
@@ -281,8 +307,8 @@ def block_pools(req):
     results = []
 
     for pool in pools:
-            with vgopen(pool) as vg:
-                results.append(dict(name=vg.getName(), size=vg.getSize(),
+            with vgopen(get_vg_lv(pool)[0]) as vg:
+                results.append(dict(name=pool, size=vg.getSize(),
                                     free_size=vg.getFreeSize(), type='block',
                                     uuid=vg.getUuid()))
 
