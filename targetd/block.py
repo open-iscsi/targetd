@@ -104,7 +104,11 @@ def create(req, pool, name, size):
     vg_name, lv_pool = get_vg_lv(pool)
     with vgopen(vg_name) as vg:
         if lv_pool:
-            vg.createLvThin(lv_pool, name, int(size))
+            #Fall back to non-thinp if needed
+            try:
+                vg.createLvThin(lv_pool, name, int(size))
+            except AttributeError:
+                vg.createLvLinear(name, int(size))
         else:
             vg.createLvLinear(name, int(size))
 
@@ -135,7 +139,11 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
 
     with vgopen(vg_name) as vg:
         if thin_pool:
-            vg.lvFromName(vol_orig).snapshot(vol_new)
+            #Fall back to non-thinp if needed
+            try:
+                vg.lvFromName(vol_orig).snapshot(vol_new)
+            except AttributeError:
+                copy_size = vg.lvFromName(vol_orig).getSize()
         else:
             copy_size = vg.lvFromName(vol_orig).getSize()
 
