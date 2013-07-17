@@ -43,7 +43,9 @@ def pool_check(pool_name):
     this or vgopen() to ensure passed-in pool name is one targetd has
     been configured to use.
     """
-    if pool_name not in [get_vg_lv(x)[0] for x in pools]:
+    pool_to_check = get_vg_lv(pool_name)[0]
+
+    if pool_to_check not in [get_vg_lv(x)[0] for x in pools]:
         raise TargetdError(-110, "Invalid pool")
 
 
@@ -154,8 +156,8 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
                     # exception
 
         try:
-            src_path = "/dev/%s/%s" % (pool, vol_orig)
-            dst_path = "/dev/%s/%s" % (pool, vol_new)
+            src_path = "/dev/%s/%s" % (vg_name, vol_orig)
+            dst_path = "/dev/%s/%s" % (vg_name, vol_new)
 
             start_time = time.clock()
             with open(src_path, 'rb') as fsrc:
@@ -211,16 +213,18 @@ def _exports_save_config():
 
 def export_create(req, pool, vol, initiator_wwn, lun):
     # get wwn of volume so LIO can export as vpd83 info
-    with vgopen(get_vg_lv(pool)[0]) as vg:
+    vg_name, thin_pool = get_vg_lv(pool)
+
+    with vgopen(vg_name) as vg:
         vol_serial = vg.lvFromName(vol).getUuid()
 
     # only add new SO if it doesn't exist
     # so.name concats pool & vol names separated by ':'
-    so_name = "%s:%s" % (pool, vol)
+    so_name = "%s:%s" % (vg_name, vol)
     try:
         so = BlockStorageObject(so_name)
     except RTSLibError:
-        so = BlockStorageObject(so_name, dev="/dev/%s/%s" % (pool, vol))
+        so = BlockStorageObject(so_name, dev="/dev/%s/%s" % (vg_name, vol))
         so.wwn = vol_serial
 
     # export useful scsi model if kernel > 3.8
@@ -261,12 +265,14 @@ def export_destroy(req, pool, vol, initiator_wwn):
     tpg = TPG(t, 1)
     na = NodeACL(tpg, initiator_wwn)
 
+    vg_name, thin_pool = get_vg_lv(pool)
+
     for mlun in na.mapped_luns:
         # all SOs are Block so we can access udev_path safely
         mlun_vg, mlun_name = \
             mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
 
-        if mlun_vg == pool and mlun_name == vol:
+        if mlun_vg == vg_name and mlun_name == vol:
             tpg_lun = mlun.tpg_lun
             mlun.delete()
             # be tidy and delete unused tpg lun mappings?
