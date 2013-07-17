@@ -60,6 +60,7 @@ def vgopen(pool_name):
 pools = []
 target_name = None
 
+
 #
 # config_dict must include block_pools and target_name or we blow up
 #
@@ -281,7 +282,8 @@ def export_destroy(req, pool, vol, initiator_wwn):
     _exports_save_config()
 
 
-def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user, out_pass):
+def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user,
+                       out_pass):
     fm = FabricModule('iscsi')
     t = Target(fm, target_name)
     tpg = TPG(t, 1)
