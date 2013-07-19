@@ -54,13 +54,24 @@ def vgopen(pool_name):
     """
     Helper function to check/close vg for us.
     """
+    global lib_calls
     pool_check(pool_name)
     with contextlib.closing(lvm.vgOpen(pool_name, "w")) as vg:
         yield vg
 
+    # Clean library periodically
+    lib_calls += 1
+    if lib_calls > 50:
+        try:
+            # May not be present if using older library
+            lvm.gc()
+        except AttributeError:
+            pass
+        lib_calls = 0
 
 pools = []
 target_name = None
+lib_calls = 0
 
 
 #
@@ -106,7 +117,7 @@ def create(req, pool, name, size):
     vg_name, lv_pool = get_vg_lv(pool)
     with vgopen(vg_name) as vg:
         if lv_pool:
-            #Fall back to non-thinp if needed
+            # Fall back to non-thinp if needed
             try:
                 vg.createLvThin(lv_pool, name, int(size))
             except AttributeError:
@@ -141,7 +152,7 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
 
     with vgopen(vg_name) as vg:
         if thin_pool:
-            #Fall back to non-thinp if needed
+            # Fall back to non-thinp if needed
             try:
                 vg.lvFromName(vol_orig).snapshot(vol_new)
             except AttributeError:
