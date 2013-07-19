@@ -213,11 +213,17 @@ class TargetHandler(BaseHTTPRequestHandler):
                 self.wfile.write(rpcdata)
 
 
-class ThreadedHTTPServer(ThreadingMixIn, HTTPServer, object):
-    """Handle requests in a separate thread."""
+class HTTPService(HTTPServer, object):
+    """
+    Handle requests one at a time
+
+    Note: The liblvm library we use is not thread safe, thus we need to
+    serialize access to it.  It has locking for concurrent process usage, but
+    we will keep things simple by serializing calls to it.
+    """
 
 
-class TLSThreadedHTTPServer(ThreadedHTTPServer):
+class TLSHTTPService(HTTPService):
     """Also use TLS to encrypt the connection"""
 
     def finish_request(self, sock, addr):
@@ -288,10 +294,10 @@ def main():
     update_mapping()
 
     if config['ssl']:
-        server_class = TLSThreadedHTTPServer
+        server_class = TLSHTTPService
         note = "(TLS yes)"
     else:
-        server_class = ThreadedHTTPServer
+        server_class = HTTPService
         note = "(TLS no)"
 
     try:
