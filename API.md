@@ -1,5 +1,5 @@
-targetd API, version 0.5.2
-==========================
+targetd API, version 0.6
+========================
 
 Summary
 -------
@@ -13,9 +13,7 @@ Entities
 --------
 Raw storage space on the host is a `pool`. From a pool, a volume
 `vol` is allocated. A volume is shared with remote hosts via an
-`export`. Finally, long-running API calls may return before processing
-is complete, and if so will supply an `async` id, which the caller may
-use to check the status of the operation.
+`export`.
 
 For file system related operations, the pool refers to a btrfs mount point.
 Each newly created file system is a subvolume on that mount point.
@@ -23,13 +21,11 @@ Each newly created file system is a subvolume on that mount point.
 Conventions
 -----------
 * All sizes are in bytes, and are passed as numbers.
-* Only methods documented as async may return an async id. Async-capable
-methods may also complete normally.
 * All names must only contain characters in '[a-z][A-Z][0-9]_-'
+* Uuid fields are represented as strings.
 * If an error occurs, it will be indicated by returning a jsonrpc
-error object with a negative error code. Positive error codes indicate
-the operation is being completed asynchronously (see below). An error
-code of 0 is not defined.
+error object with a negative error code. Non-negative error codes
+(including 0) are not defined.
 
 
 Pool operations
@@ -39,10 +35,8 @@ via this API.
 
 ### pool_list()
 Returns an array of pool objects. Each pool object contains `name`,
-`size`, `free_size`, `uuid` and `type` fields.  The domain of the type field is
-[block|fs].  At the moment uuid is not utilized.  The intention is to verify
-that the correct storage is associated in the configuration file to mitigate
-data loss if physical disks get re-arranged at boot.
+`size`, `free_size`, and `type` fields, and may also contain a 'uuid'
+field. The domain of the type field is [block|fs].
 
 Volume operations
 -----------------
@@ -64,7 +58,6 @@ data, and the data in the volume is lost even if another volume with
 the same name is created.
 
 ### vol_copy(pool, vol_orig, vol_new)
-_ASYNC_
 
 Creates a new volume named `vol_new` in `pool` the same size as
 `vol_orig` in `pool`, and copies the contents from `vol_orig` into
@@ -164,20 +157,4 @@ Removes a NFS export given a `host` and an export `path`
 
 Async method calls
 ------------------
-Operations defined as async that are deemed by targetd to be
-long-running may complete the request before processing is
-finished. In this case, it will return a jsonrpc error with a positive
-nonzero error code. This is the `async_id` for that method's
-completion status.
-
-### async_list()
-Returns an object mapping currently running `async_id`s to a 2-element
-array containing a jsonrpc status code and a percentage complete. The
-status code will either be 0 for no error, or a negative number
-indicating the error. Percentage complete is an integer from 0 to 100.
-
-If processing for an async operation completes successfully, it will
-no longer be listed in the results of async_list.
-
-If processing completes unsuccessfully, the error will be listed in the
-results of `async_list` once, and then no longer listed.
+Obsolete, no longer defined.

@@ -75,23 +75,8 @@ def jsonrequest(method, params=None):
     if response.get('error') is not None:
         if response['error']['code'] <= 0:
             raise Exception(response['error'].get('message', ''))
-        else: # +code is async execution id
-            print "Async completion, polling for results"
-            async_code = response['error']['code']
-            while True:
-                time.sleep(1)
-                results = jsonrequest('async_list')
-                status = results.get(str(async_code), None)
-                if status:
-                    if status[0]:
-                        print "%d has error %d" % (async_code, status[0])
-                        break
-                    else:
-                        print "%d still going, %d%% complete" % \
-                            (async_code, status[1])
-                else:
-                    print "%s done" % async_code
-                    break
+        else:
+            print "Invalid error code, should be negative!"
     else:
         return response.get('result')
 

@@ -55,79 +55,10 @@ class TargetdError(Exception):
         self.error = error_code
         self.msg = message
 
-def async_list(req):
-    """
-    Return a list of ongoing processes. Processes that have terminated with an
-    error are returned once and then delisted.
-    """
-    with long_op_status_lock:
-        status_dict = long_op_status.copy()
-        for key, item in long_op_status:
-            if item[0] < 0:
-                del long_op_status[key]
-    return status_dict
-
-# Long-running threads update their progress here
-long_op_status_lock = Lock()
-# async_id -> (code, pct_complete)
-long_op_status = dict()
-
-
 # Will be added to by fs/block.initialize()
-mapping = dict(
-    async_list=async_list,
-)
-
-
-async_id_lock = Lock()
-async_id = 100
-
+mapping = dict()
 
 class TargetHandler(BaseHTTPRequestHandler):
-
-    def _new_async_id(self):
-        with async_id_lock:
-            global async_id
-            new_id = async_id
-            async_id += 1
-        return new_id
-
-    def mark_async(self):
-        """
-        Mark a request as finishing after the given HTTP request returns.
-
-        Handlers calling this must
-        """
-        if not self.async_id:
-            self.async_id = self._new_async_id()
-            rpcdata = json.dumps(
-                dict(error=
-                     dict(
-                         code=self.async_id,
-                         message="Async Operation"), id=self.id))
-            self.wfile.write(rpcdata)
-            # wfile is buffered, need to do this to flush the response
-            self.connection.shutdown(socket.SHUT_WR)
-
-    def async_status(self, code, pct_complete=None):
-        """
-        update a global array with status of ongoing op.
-        code: 0 if ok, or -err
-        pct_complete: percent complete, integer 0-100
-        """
-        with long_op_status_lock:
-            long_op_status[self.async_id] = (code, pct_complete)
-
-    def complete_maybe_async(self, code):
-        """
-        Ongoing async op is done, remove status if succeeded
-
-        A no-op if req is not async.
-        """
-        if self.async_id:
-            with long_op_status_lock:
-                if not code:
-                    del long_op_status[self.async_id]
 
     def log_request(self, code='-', size='-'):
         # override base class - don't log good requests
@@ -135,7 +66,6 @@ class TargetHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
 
-        self.async_id = None
         rpcdata = ""
         error = None
 
@@ -209,8 +139,7 @@ class TargetHandler(BaseHTTPRequestHandler):
             rpcdata = json.dumps(
                 dict(error=dict(code=error[0], message=error[1]), id=self.id))
         finally:
-            if not self.async_id:
-                self.wfile.write(rpcdata)
+            self.wfile.write(rpcdata)
 
 
 class HTTPService(HTTPServer, object):

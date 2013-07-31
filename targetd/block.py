@@ -144,52 +144,18 @@ def destroy(req, pool, name):
 def copy(req, pool, vol_orig, vol_new, timeout=10):
     """
     Create a new volume that is a copy of an existing one.
-    If this operation takes longer than the timeout, it will return
-    an async completion and report actual status later.
+    Since 0.6, requires thinp support.
     """
     vg_name, thin_pool = get_vg_lv(pool)
-    copy_size = 0
 
     with vgopen(vg_name) as vg:
-        if thin_pool:
-            # Fall back to non-thinp if needed
-            try:
-                vg.lvFromName(vol_orig).snapshot(vol_new)
-            except AttributeError:
-                copy_size = vg.lvFromName(vol_orig).getSize()
-        else:
-            copy_size = vg.lvFromName(vol_orig).getSize()
-
-    if copy_size > 0:
-        create(req, pool, vol_new, copy_size)
-
-        copied = 0  # Used in except, make sure exists before we catch
-                    # exception
+        if not thin_pool:
+            raise RuntimeError("copy requires thin-provisioned volumes")
 
         try:
-            src_path = "/dev/%s/%s" % (vg_name, vol_orig)
-            dst_path = "/dev/%s/%s" % (vg_name, vol_new)
-
-            start_time = time.clock()
-            with open(src_path, 'rb') as fsrc:
-                with open(dst_path, 'wb') as fdst:
-                    while copied != copy_size:
-                        buf = fsrc.read(1024 * 1024)
-                        if not buf:
-                            break
-                        fdst.write(buf)
-                        copied += len(buf)
-                        if time.clock() > (start_time + timeout):
-                            req.mark_async()
-                            req.async_status(0,
-                                             int((float(copied) / copy_size)
-                                                 * 100))
-            req.complete_maybe_async(0)
-
-        except Exception, e:
-            destroy(req, pool, vol_new)
-            req.async_status(-303, int((float(copied) / copy_size) * 100))
-            raise TargetdError(-303, "Unexpected exception: %s" % (str(e)))
+            vg.lvFromName(vol_orig).snapshot(vol_new)
+        except AttributeError:
+            raise NotImplementedError("liblvm lacks thin snap support")
 
 
 def export_list(req):
