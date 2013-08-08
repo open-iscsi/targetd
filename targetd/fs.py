@@ -38,7 +38,7 @@ from nfs import Nfs, Export
 # (RO clone) we are creating a read only snapshot in
 # <mount>/targetd_ss/<fsname>/<snapshot name>
 #
-# There maybe better ways of utilizing btrfs,  we shall see.
+# There may be better ways of utilizing btrfs.
 
 import logging as log
 
@@ -174,9 +174,9 @@ def fs_subvolume_delete(path):
 
 
 def fs_destroy(req, uuid):
-    #Check to see if this file system has any read-only snapshots, if yes then
-    #delete.  The API requires a FS to list its RO copies, we may want to
-    #reconsider this decision.
+    # Check to see if this file system has any read-only snapshots, if yes then
+    # delete.  The API requires a FS to list its RO copies, we may want to
+    # reconsider this decision.
 
     fs = _get_fs_by_uuid(req, uuid)
 
@@ -208,8 +208,8 @@ def _fs_hash():
     for pool in pools:
         full_path = os.path.join(pool, fs_path)
 
-        #TODO take out this loop, used to handle bug in btrfs
-        #ERROR: Failed to lookup path for root 0 - No such file or directory
+        # TODO take out this loop, used to handle bug in btrfs
+        # ERROR: Failed to lookup path for root 0 - No such file or directory
         while True:
             result, out, err = invoke([fs_cmd, 'subvolume', 'list', '-u',
                                        full_path], False)
@@ -245,7 +245,7 @@ def ss(req, fs_uuid, fs_cache=None):
 
     full_path = os.path.join(fs_cache['pool'], ss_path, fs_cache['name'])
 
-    #TODO take out this loop, used to handle bug in btrfs
+    # TODO take out this loop, used to handle bug in btrfs
     # ERROR: Failed to lookup path for root 0 - No such file or directory
 
     if os.path.exists(full_path):
