@@ -21,7 +21,6 @@ import os
 import setproctitle
 import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from SocketServer import ThreadingMixIn
 from threading import Lock
 import yaml
 import itertools
