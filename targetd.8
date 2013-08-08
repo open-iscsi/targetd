@@ -3,9 +3,9 @@
 .B targetd
 .SH DESCRIPTION
 .B targetd
-is a service to allow the remote configuration of block device volumes and
-file systems within a pool, as well as exporting volumes to other hosts via iSCSI.
-Configured remote file systems will be made available via NFS/CIFS.
+is a service to allow the remote configuration of block device volumes
+and file systems within dedicated pools. Block devices can be exported to other
+hosts via iSCSI, and filesystems can be exported via NFS.
 .SH USAGE
 Run
 .B targetd
@@ -16,40 +16,40 @@ uses
 .B /etc/target/targetd.yaml
 for configuration. It is in YAML format.
 .B targetd
-currently uses scalar values and collection values, see example for details.
+currently uses scalar values and collection values, see example for
+details.
 .SS CONFIGURATION FILE SETTINGS
-.B pools:
+.B block_pools
 .br
-Sets the LVM Volume Group or file system mount point(s) that
-.B targetd
-will use to allocate volumes or file system from. Defaults to
+Sets the LVM Volume Group(s) that targetd will use to allocate
+volumes. Defaults to "vg-targetd".
+
+Alternatively, targetd can allocate thinp (thin-provisioned) volumes
+out of a thinpool LV. These should be listed as "<vgname>/<poolname>",
+with the VG and thinpool LV names separated by a "/". These should
+already be created; targetd will not create VGs or thinpool LVs.
+
+.B fs_pools
 .br
-.B "pools:"
-.br
-.B "  vg-targetd: {type: block, uuid: null}"
-.br
-.P
-.B targetd
-currently supports arbitrary number of lvm volume groups and btrfs mount points.
-.P
+Sets the mount point(s) that targetd will use to export filesystems
+over NFS. Defaults to none.
+
 .B user
 .br
 .B password
 .br
 Sets the username and password required to use the remote
-API. Defaults to 
-.B admin
-and
-.BR targetd ,
-respectively.
-.P
+API. "user" defaults to
+.BR admin ,
+but password must be set prior to using targetd.
+
 .B target_name
 .br
 Sets the iSCSI target name that
 .B targetd
 will use. Default is
 .BR iqn.2003-01.org.linux-iscsi.<hostname>:targetd .
-.P
+
 .B ssl
 .br
 .B ssl_key
@@ -71,14 +71,18 @@ These paths may also be specified, using the
 and
 .B ssl_cert
 config settings.
-.P
+
 Key and self-signed cert may be generated using openssl:
-.P
+
 .B openssl genrsa -out targetd_key.pem 2048
 .br
 .B openssl req -new -x509 -key targetd_key.pem -out targetd_cert.pem -days 9999
 .SH FILES
 .B /etc/target/targetd.yaml
+.br
+.B /etc/target/targetd_key.pem
+.br
+.B /etc/target/targetd_cert.pem
 .SH SEE ALSO
 The remote API is defined at
 .br
@@ -88,6 +92,6 @@ targetcli(8), lvm(8), lsmcli(8)
 .SH AUTHOR
 Written by Andy Grover <agrover@redhat.com>.
 .SH REPORTING BUGS
-Report bugs via <target-devel@vger.kernel.org>
+Report bugs via <targetd-devel@lists.fedorahosted.org>
 .br
 or <https://github.com/agrover/targetd/issues>
