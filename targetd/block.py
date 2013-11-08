@@ -16,12 +16,9 @@
 # Routines to export block devices over iscsi.
 
 import contextlib
-from rtslib import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
+from rtslib import (Target, TPG, NodeACL, FabricModule, BlockStorageObject, RTSRoot,
                     NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS)
 import lvm
-import time
-from targetcli import UIRoot
-from configshell import ConfigShell
 from main import TargetdError
 from utils import ignored
 
@@ -181,14 +178,6 @@ def export_list(req):
     return exports
 
 
-def _exports_save_config():
-    """
-    HACK: call targetcli saveconfig method to save state
-    """
-    root = UIRoot(ConfigShell(), as_root=True)
-    root.ui_command_saveconfig()
-
-
 def export_create(req, pool, vol, initiator_wwn, lun):
     # get wwn of volume so LIO can export as vpd83 info
     vg_name, thin_pool = get_vg_lv(pool)
@@ -233,7 +222,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
     else:
         MappedLUN(na, lun, tpg_lun)
 
-    _exports_save_config()
+    RTSRoot().save_to_file()
 
 
 def export_destroy(req, pool, vol, initiator_wwn):
@@ -271,7 +260,7 @@ def export_destroy(req, pool, vol, initiator_wwn):
             if not len(list(t.tpgs)):
                 t.delete()
 
-    _exports_save_config()
+    RTSRoot().save_to_file()
 
 
 def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user,
@@ -294,7 +283,7 @@ def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user,
     na.chap_mutual_userid = out_user
     na.chap_mutual_password = out_pass
 
-    _exports_save_config()
+    RTSRoot().save_to_file()
 
 
 def block_pools(req):
