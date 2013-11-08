@@ -27,9 +27,8 @@ targetd is licensed under the GPLv3. Contributions are welcome.
 Getting Started
 ---------------
 targetd has these Python library dependencies:
-* [targetcli] (https://github.com/agrover/targetcli-fb) (must be fb*)
-* [python-rtslib](https://github.com/agrover/rtslib-fb) 2.1.fb14+  (must be fb*)
-* [python-lvm](https://github.com/agrover/python-lvm) 1.2.2+
+* [python-rtslib](https://github.com/agrover/rtslib-fb) 2.1.fb42+  (must be fb*)
+* [LVM2 with Python bindings(lvm2-python-libs)](https://sourceware.org/lvm2/) 2.02.99+
 * [python-setproctitle](https://github.com/dvarrazzo/py-setproctitle)
 * [PyYAML](http://pyyaml.org/)
 
