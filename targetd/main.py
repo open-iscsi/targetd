@@ -178,7 +178,7 @@ def load_config(config_path):
 
     # compat: handle old single-pool config option
     if 'pool_name' in config:
-        config['block_pools'].append(config['pool_name'])
+        config['block_pools'] = [config['pool_name']]
         del config['pool_name']
 
     # uniquify pool lists
