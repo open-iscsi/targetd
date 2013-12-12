@@ -13,6 +13,15 @@
 
 from subprocess import Popen, PIPE
 import re
+import hashlib
+import os
+import os.path
+
+
+def md5(t):
+    h = hashlib.md5()
+    h.update(t)
+    return h.hexdigest()
 
 
 def invoke(cmd, raise_exception=True):
@@ -145,7 +154,7 @@ class Export(object):
         options = options_string.split(',')
         for o in options:
             if '=' in o:
-                #We have a key=value
+                # We have a key=value
                 key, value = o.split('=')
                 pairs[key] = value
             else:
@@ -189,12 +198,17 @@ class Export(object):
         return "%s%s(%s)" % (self.path.ljust(50), self.host,
                              self.options_string())
 
+    def export_file_format(self):
+        return "%s %s(%s)\n" % (self.path, self.host, self.options_string())
+
 
 class Nfs(object):
     """
     Python module for configuring NFS exports
     """
-    cmd = 'exportfs'
+    CMD = 'exportfs'
+    EXPORT_FILE = 'targetd.exports'
+    EXPORT_FS_CONFIG_DIR = '/etc/exports.d'
 
     def __init__(self):
         pass
@@ -204,12 +218,26 @@ class Nfs(object):
         return "sys", "krb5", "krb5i", "krb5p"
 
     @staticmethod
+    def _save_exports():
+        # Remove existing export
+        config_file = os.path.join(Nfs.EXPORT_FS_CONFIG_DIR, Nfs.EXPORT_FILE)
+        try:
+            os.remove(config_file)
+        except OSError:
+            pass
+
+        # Recreate all existing exports
+        with open(config_file, 'w') as ef:
+            for e in Nfs.exports():
+                ef.write(e.export_file_format())
+
+    @staticmethod
     def exports():
         """
         Return list of exports
         """
         rc = []
-        ec, out, error = invoke([Nfs.cmd, '-v'])
+        ec, out, error = invoke([Nfs.CMD, '-v'])
         rc = Export.parse(out)
         return rc
 
@@ -221,7 +249,7 @@ class Nfs(object):
         export = Export(host, path, bit_wise_options, key_value_options)
         options = export.options_string()
 
-        cmd = [Nfs.cmd]
+        cmd = [Nfs.CMD]
 
         if len(options):
             cmd.extend(['-o', options])
@@ -230,6 +258,7 @@ class Nfs(object):
 
         ec, out, err = invoke(cmd, False)
         if ec == 0:
+            Nfs._save_exports()
             return None
         elif ec == 22:
             raise ValueError("Invalid option: %s" % err)
@@ -240,5 +269,8 @@ class Nfs(object):
 
     @staticmethod
     def export_remove(export):
-        ec, out, err = invoke([Nfs.cmd, '-u', '%s:%s' %
+        ec, out, err = invoke([Nfs.CMD, '-u', '%s:%s' %
                                               (export.host, export.path)])
+
+        if ec == 0:
+            Nfs._save_exports()
