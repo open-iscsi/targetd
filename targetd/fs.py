@@ -49,6 +49,7 @@ fs_cmd = 'btrfs'
 
 pools = []
 
+
 def initialize(config_dict):
 
     global pools
@@ -211,18 +212,25 @@ def _fs_hash():
         # TODO take out this loop, used to handle bug in btrfs
         # ERROR: Failed to lookup path for root 0 - No such file or directory
         while True:
-            result, out, err = invoke([fs_cmd, 'subvolume', 'list', '-u',
-                                       full_path], False)
+            result, out, err = invoke([fs_cmd, 'subvolume', 'list', '-ua',
+                                       pool], False)
             if result == 0:
                 data = split_stdout(out)
                 if len(data):
                     (total, free) = fs_space_values(full_path)
                     for e in data:
                         sub_vol = e[10]
-                        key = full_path + '/' + sub_vol
-                        fs_list[key] = dict(name=sub_vol, uuid=e[8],
-                                            total_space=total, free_space=free,
-                                            pool=pool, full_path=key)
+
+                        prefix = fs_path + '/'
+
+                        if sub_vol[:len(prefix)] == prefix:
+                            key = pool + '/' + sub_vol
+                            fs_list[key] = dict(name=sub_vol[len(prefix):],
+                                                uuid=e[8],
+                                                total_space=total,
+                                                free_space=free,
+                                                pool=pool,
+                                                full_path=key)
                 break
             elif result == 19:
                 time.sleep(1)
