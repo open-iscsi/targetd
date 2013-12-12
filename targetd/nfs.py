@@ -76,7 +76,12 @@ class Export(object):
     export_regex = '([\/a-zA-Z0-9\.-_]+)[\s]+(.+)\((.+)\)'
 
     @staticmethod
-    def _bitCount(int_type):
+    def _bc(int_type):
+        """
+        Bit count.
+
+        returns the number of bits set.
+        """
         count = 0
         while int_type:
             int_type &= int_type - 1
@@ -86,23 +91,22 @@ class Export(object):
     @staticmethod
     def _validate_options(options):
 
-        if Export._bitCount(((Export.RW | Export.RO) & options)) == 2:
+        if Export._bc(((Export.RW | Export.RO) & options)) == 2:
             raise ValueError("Both RO & RW set")
 
-        if Export._bitCount(((Export.INSECURE | Export.SECURE) & options)) == 2:
+        if Export._bc(((Export.INSECURE | Export.SECURE) & options)) == 2:
             raise ValueError("Both INSECURE & SECURE set")
 
-        if Export._bitCount(((Export.SYNC | Export.ASYNC) & options)) == 2:
+        if Export._bc(((Export.SYNC | Export.ASYNC) & options)) == 2:
             raise ValueError("Both SYNC & ASYNC set")
 
-        if Export._bitCount(((Export.HIDE | Export.NOHIDE) & options)) == 2:
+        if Export._bc(((Export.HIDE | Export.NOHIDE) & options)) == 2:
             raise ValueError("Both HIDE & NOHIDE set")
 
-        if Export._bitCount(((Export.WDELAY | Export.NO_WDELAY) & options)) \
-                == 2:
+        if Export._bc(((Export.WDELAY | Export.NO_WDELAY) & options)) == 2:
             raise ValueError("Both WDELAY & NO_WDELAY set")
 
-        if Export._bitCount(((Export.ROOT_SQUASH | Export.NO_ROOT_SQUASH)
+        if Export._bc(((Export.ROOT_SQUASH | Export.NO_ROOT_SQUASH)
                             & options)) > 1:
             raise ValueError("Only one option of ROOT_SQUASH, NO_ROOT_SQUASH, "
                              "can be specified")
@@ -205,7 +209,7 @@ class Nfs(object):
         Return list of exports
         """
         rc = []
-        ec, out, error = invoke([Nfs.cmd,  '-v'])
+        ec, out, error = invoke([Nfs.cmd, '-v'])
         rc = Export.parse(out)
         return rc
 
