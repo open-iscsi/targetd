@@ -16,6 +16,7 @@ import re
 import hashlib
 import os
 import os.path
+import shlex
 
 
 def md5(t):
@@ -83,6 +84,17 @@ class Export(object):
                     anonuid=int, anongid=int)
 
     export_regex = '([\/a-zA-Z0-9\.-_]+)[\s]+(.+)\((.+)\)'
+    octal_nums_regex = r"""\\([0-7][0-7][0-7])"""
+
+    @staticmethod
+    def _join(sep, *strings_to_join):
+        rc = ''
+        for s in strings_to_join:
+            if len(s):
+                if len(rc):
+                    rc += sep
+                rc += s
+        return rc
 
     @staticmethod
     def _bc(int_type):
@@ -115,8 +127,8 @@ class Export(object):
         if Export._bc(((Export.WDELAY | Export.NO_WDELAY) & options)) == 2:
             raise ValueError("Both WDELAY & NO_WDELAY set")
 
-        if Export._bc(((Export.ROOT_SQUASH | Export.NO_ROOT_SQUASH)
-                            & options)) > 1:
+        if Export._bc(
+                ((Export.ROOT_SQUASH | Export.NO_ROOT_SQUASH) & options)) > 1:
             raise ValueError("Only one option of ROOT_SQUASH, NO_ROOT_SQUASH, "
                              "can be specified")
 
@@ -151,19 +163,77 @@ class Export(object):
         bits = 0
         pairs = {}
 
-        options = options_string.split(',')
-        for o in options:
-            if '=' in o:
-                # We have a key=value
-                key, value = o.split('=')
-                pairs[key] = value
-            else:
-                bits |= Export.bool_option[o]
+        if len(options_string):
+            options = options_string.split(',')
+            for o in options:
+                if '=' in o:
+                    # We have a key=value
+                    key, value = o.split('=')
+                    pairs[key] = value
+                else:
+                    bits |= Export.bool_option[o]
 
         return bits, pairs
 
     @staticmethod
-    def parse(export_text):
+    def parse_export(tokens):
+        rc = []
+
+        try:
+            global_options = ''
+            options = ''
+            path = ''
+
+            if len(tokens) >= 1:
+                path = tokens[0]
+
+                if len(tokens) > 1:
+                    for t in tokens[1:]:
+
+                        #Handle global options
+                        if t[0] == '-' and not global_options:
+                            global_options = t[1:]
+                            continue
+
+                        # Check for a host or a host with an options group
+                        if '(' and ')' in t:
+                            if t[0] != '(':
+                                host, options = t[:-1].split('(')
+                            else:
+                                host = '*'
+                                options = t[1:-1]
+                        else:
+                            host = t
+
+                        rc.append(Export(host, path,
+                                         *Export.parse_opt(
+                                             Export._join(
+                                                 ',',
+                                                 global_options,
+                                                 options))))
+                else:
+                    rc.append(Export('*', path))
+
+        except Exception as e:
+            return None
+
+        return rc
+
+    @staticmethod
+    def parse_exports_file(f):
+        rc = []
+
+        with open(f, "r") as e_f:
+            for line in e_f:
+                exp = Export.parse_export(
+                    shlex.split(Export._chr_encode(line), '#'))
+                if exp:
+                    rc.extend(exp)
+
+        return rc
+
+    @staticmethod
+    def parse_exportfs_output(export_text):
         rc = []
         pattern = re.compile(Export.export_regex)
 
@@ -194,12 +264,32 @@ class Export(object):
     def options_string(self):
         return ','.join(self.options_list())
 
+    @staticmethod
+    def _double_quote_space(s):
+        if ' ' in s:
+            return '"%s"' % s
+        return s
+
     def __repr__(self):
-        return "%s%s(%s)" % (self.path.ljust(50), self.host,
-                             self.options_string())
+        return "%s %s(%s)" % (Export._double_quote_space(self.path).ljust(50),
+                                self.host, self.options_string())
 
     def export_file_format(self):
-        return "%s %s(%s)\n" % (self.path, self.host, self.options_string())
+        return "%s %s(%s)\n" % (Export._double_quote_space(self.path),
+                                self.host, self.options_string())
+
+    @staticmethod
+    def _chr_encode(s):
+        # Replace octal values
+        p = re.compile(Export.octal_nums_regex)
+
+        for m in re.finditer(p, s):
+            s = s.replace('\\' + m.group(1), chr(int(m.group(1), 8)))
+
+        return s
+
+    def __eq__(self, other):
+        return self.path == other.path and self.host == other.host
 
 
 class Nfs(object):
@@ -209,6 +299,7 @@ class Nfs(object):
     CMD = 'exportfs'
     EXPORT_FILE = 'targetd.exports'
     EXPORT_FS_CONFIG_DIR = '/etc/exports.d'
+    MAIN_EXPORT_FILE = '/etc/exports'
 
     def __init__(self):
         pass
@@ -226,10 +317,14 @@ class Nfs(object):
         except OSError:
             pass
 
+        # Get exports in /etc/exports
+        user_exports = Export.parse_exports_file(Nfs.MAIN_EXPORT_FILE)
+
         # Recreate all existing exports
         with open(config_file, 'w') as ef:
             for e in Nfs.exports():
-                ef.write(e.export_file_format())
+                if e not in user_exports:
+                    ef.write(e.export_file_format())
 
     @staticmethod
     def exports():
@@ -238,7 +333,7 @@ class Nfs(object):
         """
         rc = []
         ec, out, error = invoke([Nfs.CMD, '-v'])
-        rc = Export.parse(out)
+        rc = Export.parse_exportfs_output(out)
         return rc
 
     @staticmethod
