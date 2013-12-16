@@ -11,36 +11,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from subprocess import Popen, PIPE
 import re
 import hashlib
 import os
 import os.path
 import shlex
+from utils import invoke
 
 
 def md5(t):
     h = hashlib.md5()
     h.update(t)
     return h.hexdigest()
-
-
-def invoke(cmd, raise_exception=True):
-    """
-    Exec a command returning a tuple (exit code, stdout, stderr) and optionally
-    throwing an exception on non-zero exit code.
-    """
-    c = Popen(cmd, stdout=PIPE, stderr=PIPE)
-    out = c.communicate()
-
-    if raise_exception:
-        if c.returncode != 0:
-            cmd_str = str(cmd)
-            raise RuntimeError('Unexpected exit code "%s" %s, out= %s' %
-                               (cmd_str, str(c.returncode),
-                                str(out[0] + out[1])))
-
-    return c.returncode, out[0], out[1]
 
 
 def make_line_array(out):

@@ -15,7 +15,7 @@
 #
 # Utility functions.
 
-
+from subprocess import Popen, PIPE
 from contextlib import contextmanager
 
 @contextmanager
@@ -24,3 +24,28 @@ def ignored(*exceptions):
         yield
     except exceptions:
         pass
+
+
+class TargetdError(Exception):
+    def __init__(self, error_code, message, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
+        self.error = error_code
+        self.msg = message
+
+
+def invoke(cmd, raise_exception=True):
+    """
+    Exec a command returning a tuple (exit code, stdout, stderr) and optionally
+    throwing an exception on non-zero exit code.
+    """
+    c = Popen(cmd, stdout=PIPE, stderr=PIPE)
+    out = c.communicate()
+
+    if raise_exception:
+        if c.returncode != 0:
+            cmd_str = str(cmd)
+            raise TargetdError(-303, 'Unexpected exit code "%s" %s, out= %s' %
+                                     (cmd_str, str(c.returncode),
+                                      str(out[0] + out[1])))
+
+    return c.returncode, out[0], out[1]

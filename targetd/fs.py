@@ -18,9 +18,8 @@
 
 import os
 import time
-from subprocess import Popen, PIPE
-from main import TargetdError
 from nfs import Nfs, Export
+from utils import invoke, TargetdError
 
 
 # Notes:
@@ -78,24 +77,6 @@ def initialize(config_dict):
         nfs_export_add=nfs_export_add,
         nfs_export_remove=nfs_export_remove,
         )
-
-
-def invoke(cmd, raise_exception=True):
-    """
-    Exec a command returning a tuple (exit code, stdout, stderr) and optionally
-    throwing an exception on non-zero exit code.
-    """
-    c = Popen(cmd, stdout=PIPE, stderr=PIPE)
-    out = c.communicate()
-
-    if raise_exception:
-        if c.returncode != 0:
-            cmd_str = str(cmd)
-            raise TargetdError(-303, 'Unexpected exit code "%s" %s, out= %s' %
-                                     (cmd_str, str(c.returncode),
-                                      str(out[0] + out[1])))
-
-    return c.returncode, out[0], out[1]
 
 
 def create_sub_volume(p):
@@ -203,40 +184,49 @@ def fs_pools(req):
     return results
 
 
+def _invoke_retries(command, throw_exception):
+    # TODO take out this loop, used to handle bug in btrfs
+    # ERROR: Failed to lookup path for root 0 - No such file or directory
+
+    for i in range(0, 5):
+        result, out, err = invoke(command, False)
+        if result == 0:
+            return result, out, err
+        elif result == 19:
+            time.sleep(1)
+            continue
+        else:
+            raise TargetdError(-303, "Unexpected exit code %d" % result)
+
+    raise TargetdError(-303, "Unable to execute command after "
+                             "multiple retries %s" % (str(command)))
+
+
 def _fs_hash():
     fs_list = {}
 
     for pool in pools:
         full_path = os.path.join(pool, fs_path)
 
-        # TODO take out this loop, used to handle bug in btrfs
-        # ERROR: Failed to lookup path for root 0 - No such file or directory
-        while True:
-            result, out, err = invoke([fs_cmd, 'subvolume', 'list', '-ua',
-                                       pool], False)
-            if result == 0:
-                data = split_stdout(out)
-                if len(data):
-                    (total, free) = fs_space_values(full_path)
-                    for e in data:
-                        sub_vol = e[10]
+        result, out, err = _invoke_retries(
+            [fs_cmd, 'subvolume', 'list', '-ua', pool], False)
 
-                        prefix = fs_path + '/'
+        data = split_stdout(out)
+        if len(data):
+            (total, free) = fs_space_values(full_path)
+            for e in data:
+                sub_vol = e[10]
 
-                        if sub_vol[:len(prefix)] == prefix:
-                            key = pool + '/' + sub_vol
-                            fs_list[key] = dict(name=sub_vol[len(prefix):],
-                                                uuid=e[8],
-                                                total_space=total,
-                                                free_space=free,
-                                                pool=pool,
-                                                full_path=key)
-                break
-            elif result == 19:
-                time.sleep(1)
-                continue
-            else:
-                raise TargetdError(-303, "Unexpected exit code %d" % result)
+                prefix = fs_path + os.path.sep
+
+                if sub_vol[:len(prefix)] == prefix:
+                    key = os.path.join(pool, sub_vol)
+                    fs_list[key] = dict(name=sub_vol[len(prefix):],
+                                        uuid=e[8],
+                                        total_space=total,
+                                        free_space=free,
+                                        pool=pool,
+                                        full_path=key)
 
     return fs_list
 
@@ -253,28 +243,18 @@ def ss(req, fs_uuid, fs_cache=None):
 
     full_path = os.path.join(fs_cache['pool'], ss_path, fs_cache['name'])
 
-    # TODO take out this loop, used to handle bug in btrfs
-    # ERROR: Failed to lookup path for root 0 - No such file or directory
-
     if os.path.exists(full_path):
-        while True:
-            result, out, err = invoke([fs_cmd, 'subvolume', 'list', '-s',
-                                       full_path], False)
-            if result == 0:
-                data = split_stdout(out)
-                if len(data):
-                    for e in data:
-                        ts = "%s %s" % (e[10], e[11])
-                        time_epoch = int(time.mktime(
-                            time.strptime(ts, '%Y-%m-%d %H:%M:%S')))
-                        st = dict(name=e[-1], uuid=e[-3], timestamp=time_epoch)
-                        snapshots.append(st)
-                break
-            elif result == 19:
-                time.sleep(1)
-                continue
-            else:
-                raise TargetdError(-303, "Unexpected exit code %d" % result)
+        result, out, err = _invoke_retries([fs_cmd, 'subvolume', 'list', '-s',
+                                            full_path], False)
+
+        data = split_stdout(out)
+        if len(data):
+            for e in data:
+                ts = "%s %s" % (e[10], e[11])
+                time_epoch = int(time.mktime(
+                    time.strptime(ts, '%Y-%m-%d %H:%M:%S')))
+                st = dict(name=e[-1], uuid=e[-3], timestamp=time_epoch)
+                snapshots.append(st)
 
     return snapshots
 
