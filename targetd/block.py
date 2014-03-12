@@ -289,10 +289,26 @@ def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user,
 def block_pools(req):
     results = []
 
+    def thinp_get_free_bytes(thinp):
+        # we can only get used percent, so calculate an approx. free bytes
+        # These return an integer in of millionths of a percent, so
+        # add them and get a decimalization by dividing by another 100
+        used_pct = float(thinp.getProperty("data_percent")[0] + \
+                         thinp.getProperty("metadata_percent")[0])/100000000
+        return int(thinp.getSize() * (1 - used_pct))
+
     for pool in pools:
-            with vgopen(get_vg_lv(pool)[0]) as vg:
+        vg_name, tp_name = get_vg_lv(pool)
+        if not tp_name:
+            with vgopen(vg_name) as vg:
                 results.append(dict(name=pool, size=vg.getSize(),
                                     free_size=vg.getFreeSize(), type='block',
                                     uuid=vg.getUuid()))
+        else:
+            with vgopen(vg_name) as vg:
+                thinp = vg.lvFromName(tp_name)
+                results.append(dict(name=pool, size=thinp.getSize(),
+                                    free_size=thinp_get_free_bytes(thinp),
+                                    type='block', uuid=thinp.getUuid()))
 
     return results
