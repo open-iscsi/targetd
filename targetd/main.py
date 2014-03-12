@@ -192,8 +192,17 @@ def update_mapping():
     import block
     import fs
 
-    mapping.update(block.initialize(config))
-    mapping.update(fs.initialize(config))
+    try:
+        mapping.update(block.initialize(config))
+    except Exception as e:
+        log.error("Error initializing block module: %s" % e)
+        raise
+
+    try:
+        mapping.update(fs.initialize(config))
+    except Exception as e:
+        log.error("Error initializing fs module: %s" % e)
+        raise
 
     # one method requires output from both modules
     def pool_list(req):
@@ -212,7 +221,10 @@ def main():
 
     setproctitle.setproctitle("targetd")
 
-    update_mapping()
+    try:
+        update_mapping()
+    except:
+        return -1
 
     if config['ssl']:
         server_class = TLSHTTPService
