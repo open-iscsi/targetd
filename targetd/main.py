@@ -117,7 +117,7 @@ class TargetHandler(BaseHTTPRequestHandler):
                 log.debug(traceback.format_exc())
                 raise
             except TargetdError, td:
-                error = (td.error, td.msg)
+                error = (td.error, str(td))
                 raise
             except Exception, e:
                 error = (-1, "%s: %s" % (type(e).__name__, e))

@@ -27,10 +27,9 @@ def ignored(*exceptions):
 
 
 class TargetdError(Exception):
-    def __init__(self, error_code, message, *args, **kwargs):
+    def __init__(self, error_code, *args, **kwargs):
         Exception.__init__(self, *args, **kwargs)
         self.error = error_code
-        self.msg = message
 
 
 def invoke(cmd, raise_exception=True):
