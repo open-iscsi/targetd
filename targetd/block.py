@@ -84,8 +84,17 @@ def initialize(config_dict):
 
     # fail early if can't access any vg
     for pool in pools:
-        test_vg = lvm.vgOpen(get_vg_lv(pool)[0])
+        vg_name, thin_pool = get_vg_lv(pool)
+        test_vg = lvm.vgOpen(vg_name)
         test_vg.close()
+
+        # Allowed multi-pool configs:
+        # two thinpools from a single vg: ok
+        # two vgs: ok
+        # vg and a thinpool from that vg: BAD
+        #
+        if thin_pool and [x for x in pools if x == vg_name]:
+            raise TargetdError(-1, "VG pool and thin pool from same VG not supported")
 
     return dict(
         vol_list=volumes,
