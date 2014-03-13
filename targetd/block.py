@@ -105,9 +105,14 @@ def volumes(req, pool):
     with vgopen(vg_name) as vg:
         for lv in vg.listLVs():
             attrib = lv.getAttr()
-            if attrib[0] == 'V' or attrib[0] == '-':
-                output.append(dict(name=lv.getName(), size=lv.getSize(),
-                                   uuid=lv.getUuid()))
+            if not lv_pool:
+                if attrib[0] == '-':
+                    output.append(dict(name=lv.getName(), size=lv.getSize(),
+                                       uuid=lv.getUuid()))
+            else:
+                if attrib[0] == 'V' and lv.getProperty("pool_lv")[0] == lv_pool:
+                    output.append(dict(name=lv.getName(), size=lv.getSize(),
+                                       uuid=lv.getUuid()))
     return output
 
 
