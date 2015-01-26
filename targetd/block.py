@@ -110,6 +110,7 @@ def initialize(config_dict):
         access_group_list=access_group_list,
         access_group_create=access_group_create,
         access_group_destroy=access_group_destroy,
+        access_group_init_add=access_group_init_add,
     )
 
 
@@ -432,4 +433,33 @@ def access_group_create(req, ag_name, init_id, init_type):
 
 def access_group_destroy(req, ag_name):
     NodeACLGroup(_get_iscsi_tpg(), ag_name).delete()
+    RTSRoot().save_to_file()
+
+
+def access_group_init_add(req, ag_name, init_id, init_type):
+    if init_type != 'iscsi':
+        raise TargetdError(
+            TargetdError.NO_SUPPORT, "Only support iscsi")
+
+    tpg = _get_iscsi_tpg()
+    # Pre-check:
+    #   1. Already in requested access group, return silently.
+    #   2. Initiator does not exist.
+    #   3. Initiator not used by other access group.
+
+    if init_id in list(NodeACLGroup(tpg, ag_name).wwns):
+        return
+
+    for node_acl_group in tpg.node_acl_groups:
+        if init_id in list(node_acl_group.wwns):
+            raise TargetdError(
+                TargetdError.EXISTS_INITIATOR,
+                "Requested init_id is used by other access group")
+    for node_acl in tpg.node_acls:
+        if init_id == node_acl.node_wwn:
+            raise TargetdError(
+                TargetdError.EXISTS_INITIATOR,
+                "Requested init_id is in use")
+
+    NodeACLGroup(tpg, ag_name).add_acl(init_id)
     RTSRoot().save_to_file()

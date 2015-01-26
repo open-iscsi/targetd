@@ -175,6 +175,18 @@ Returns:
 Errors:
     N/A
 
+### access_group_init_add(ag_name, init_id, init_type)
+Add a new initiator into a access group.
+If defined access group does not exist, create one with requested initiator.
+Parameters:
+    ag_name (str): Access group name
+    init_id (str): iSCSI initiator address
+    init_type (str): Reserved for future use. Should be set as 'iscsi'
+Returns:
+    N/A
+Errors:
+    -52:    Exists initiator. Requested 'init_id' is in use
+
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The
