@@ -220,6 +220,22 @@ Returns:
 Errors:
     N/A
 
+### access_group_map_create(pool_name, vol_name, ag_name, h_lun_id=None)
+Grant certain access group the rw access to defined volume.
+Parameters:
+    pool_name (str): The name of pool which defined volume belongs to.
+    vol_name (str): The name of volume.
+    ag_name (str): Access group name
+    h_lun_id (int, optional):
+        Host LUN ID (the SCSI LUN ID seen by iSCSI initiator).
+        Range is 0 to 255.
+        If not defined, targetd will try to find the next available one.
+Returns:
+    N/A
+Errors:
+    -1000:  No free host_lun_id. LUN ID between 0 ~ 255 is in use.
+    -200:   Access group not found.
+
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The

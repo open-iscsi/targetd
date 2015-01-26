@@ -113,6 +113,7 @@ def initialize(config_dict):
         access_group_init_add=access_group_init_add,
         access_group_init_del=access_group_init_del,
         access_group_map_list=access_group_map_list,
+        access_group_map_create=access_group_map_create,
     )
 
 
@@ -201,24 +202,6 @@ def export_list(req):
 
 
 def export_create(req, pool, vol, initiator_wwn, lun):
-    # get wwn of volume so LIO can export as vpd83 info
-    vg_name, thin_pool = get_vg_lv(pool)
-
-    with vgopen(vg_name) as vg:
-        vol_serial = vg.lvFromName(vol).getUuid()
-
-    # only add new SO if it doesn't exist
-    # so.name concats pool & vol names separated by ':'
-    so_name = "%s:%s" % (vg_name, vol)
-    try:
-        so = BlockStorageObject(so_name)
-    except RTSLibError:
-        so = BlockStorageObject(so_name, dev="/dev/%s/%s" % (vg_name, vol))
-        so.wwn = vol_serial
-
-    # export useful scsi model if kernel > 3.8
-    with ignored(RTSLibError):
-        so.set_attribute("emulate_model_alias", '1')
 
     fm = FabricModule('iscsi')
     t = Target(fm, target_name)
@@ -228,14 +211,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
     NetworkPortal(tpg, "0.0.0.0")
     na = NodeACL(tpg, initiator_wwn)
 
-    # only add tpg lun if it doesn't exist
-    for tmp_lun in tpg.luns:
-        if tmp_lun.storage_object.name == so.name \
-                and tmp_lun.storage_object.plugin == 'block':
-            tpg_lun = tmp_lun
-            break
-    else:
-        tpg_lun = LUN(tpg, storage_object=so)
+    tpg_lun = _tpg_lun_of(tpg, pool, vol)
 
     # only add mapped lun if it doesn't exist
     for tmp_mlun in tpg_lun.mapped_luns:
@@ -518,3 +494,80 @@ def access_group_map_list(req):
             )
 
     return results
+
+
+def _tpg_lun_of(tpg, pool_name, vol_name):
+    """
+    Return a object of LUN for given lvm lv.
+    If not exist, create one.
+    """
+    # get wwn of volume so LIO can export as vpd83 info
+    vg_name, thin_pool = get_vg_lv(pool_name)
+
+    with vgopen(vg_name) as vg:
+        vol_serial = vg.lvFromName(vol_name).getUuid()
+
+    # only add new SO if it doesn't exist
+    # so.name concats pool & vol names separated by ':'
+    so_name = "%s:%s" % (vg_name, vol_name)
+    try:
+        so = BlockStorageObject(so_name)
+    except RTSLibError:
+        so = BlockStorageObject(
+            so_name, dev="/dev/%s/%s" % (vg_name, vol_name))
+        so.wwn = vol_serial
+
+    # export useful scsi model if kernel > 3.8
+    with ignored(RTSLibError):
+        so.set_attribute("emulate_model_alias", '1')
+
+    # only add tpg lun if it doesn't exist
+    for tmp_lun in tpg.luns:
+        if tmp_lun.storage_object.name == so.name and \
+           tmp_lun.storage_object.plugin == 'block':
+            return tmp_lun
+    else:
+        return LUN(tpg, storage_object=so)
+
+
+def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
+    tpg = _get_iscsi_tpg()
+    tpg.enable = True
+    tpg.set_attribute("authentication", '0')
+    NetworkPortal(tpg, "0.0.0.0")
+
+    tpg_lun = _tpg_lun_of(tpg, pool_name, vol_name)
+
+    # Pre-Check:
+    #   1. Already mapped to requested access group, return None
+    if len(list(tpg_lun.mapped_luns)):
+        tgt_map_list = access_group_map_list(req)
+        for tgt_map in tgt_map_list:
+            if tgt_map['ag_name'] == ag_name and \
+               tgt_map['pool_name'] == pool_name and \
+               tgt_map['vol_name'] == vol_name:
+                # Already masked.
+                return None
+
+    node_acl_group = NodeACLGroup(tpg, ag_name)
+    if len(list(node_acl_group.wwns)) == 0:
+        # Non-exist access group means volume mapping status will not be
+        # stored. This should be considered as an error instead of sliently
+        # return.
+        raise TargetdError(
+            TargetdError.NOT_FOUND_ACCESS_GROUP, "Access group not found")
+
+    if h_lun_id is None:
+        # Find out next available host LUN ID
+        # Assuming max host LUN ID is LUN.MAX_LUN
+        free_h_lun_ids = set(range(LUN.MAX_LUN+1)) - \
+            set([int(x.mapped_lun) for x in tpg_lun.mapped_luns])
+        if len(free_h_lun_ids) == 0:
+            raise TargetdError(
+                TargetdError.NO_FREE_HOST_LUN_ID,
+                "All host LUN ID 0 ~ %d is in use" % LUN.MAX_LUN)
+        else:
+            h_lun_id = free_h_lun_ids.pop()
+
+    node_acl_group.mapped_lun_group(h_lun_id, tpg_lun)
+    RTSRoot().save_to_file()

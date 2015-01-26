@@ -42,6 +42,8 @@ class TargetdError(Exception):
     NO_SUPPORT = -153
     NAME_CONFLICT = -50
     EXISTS_INITIATOR = -52
+    NO_FREE_HOST_LUN_ID = -1000
+    NOT_FOUND_ACCESS_GROUP = -200
 
     def __init__(self, error_code, *args, **kwargs):
         Exception.__init__(self, *args, **kwargs)
