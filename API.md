@@ -165,6 +165,16 @@ Errors:
     -50:    Name conflict. Requested 'ag_name' is in use
     -52:    Exists initiator. Requested 'init_id' is in use
 
+### access_group_destroy(ag_name)
+Delete a access group including it's initiator and volume masking status.
+No error will be raised even provided access group name does not exist.
+Parameters:
+    ag_name (str): Access group name
+Returns:
+    N/A
+Errors:
+    N/A
+
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The

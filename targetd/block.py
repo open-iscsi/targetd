@@ -109,6 +109,7 @@ def initialize(config_dict):
         initiator_list=initiator_list,
         access_group_list=access_group_list,
         access_group_create=access_group_create,
+        access_group_destroy=access_group_destroy,
     )
 
 
@@ -426,4 +427,9 @@ def access_group_create(req, ag_name, init_id, init_type):
 
     node_acl_group = NodeACLGroup(tpg, ag_name)
     node_acl_group.add_acl(init_id)
+    RTSRoot().save_to_file()
+
+
+def access_group_destroy(req, ag_name):
+    NodeACLGroup(_get_iscsi_tpg(), ag_name).delete()
     RTSRoot().save_to_file()
