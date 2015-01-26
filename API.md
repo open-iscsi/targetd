@@ -101,6 +101,27 @@ direction.
 Calling this method is not required for exports to work. If it is not
 called, exports require no authentication.
 
+### initiator_list(standalone_only=False)
+List all initiators.
+Parameters:
+    standalone_only(bool, optional):
+    If 'standalone_only' is True, only return initiator which is not in any
+    NodeACLGroup.
+    By default, all initiators will be included in result.
+Returns:
+    [
+        {
+            'init_id': str,
+            'init_type': str,
+        },
+    ]
+    The 'init_id' of result is the iSCSI IQN/NAA/EUI address of initiator.
+    Example: 'iqn.2000-04.com.example:someone-01'
+    The 'init_type' is reserved for future use, currently, it is 'iscsi'.
+
+Errors:
+    N/A
+
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The
@@ -147,7 +168,7 @@ Returns an array of export objects.  Each export object contains: `host`, `path`
 
 ### nfs_export_add(host, path, options)
 Adds a NFS export given a `host`, and an export `path` to export and a list of `options`
-Options is a list of NFS export options.  Each option can be either a single value 
+Options is a list of NFS export options.  Each option can be either a single value
 eg. no_root_squash or can be a `key=value` like `sec=sys`.  See `man 5 exports` for all available
 supported options and the formats supported for `host`.
 

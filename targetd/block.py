@@ -105,6 +105,7 @@ def initialize(config_dict):
         export_create=export_create,
         export_destroy=export_destroy,
         initiator_set_auth=initiator_set_auth,
+        initiator_list=initiator_list,
     )
 
 
@@ -326,3 +327,43 @@ def block_pools(req):
                                     type='block', uuid=thinp.getUuid()))
 
     return results
+
+
+def _get_iscsi_tpg():
+    fabric_module = FabricModule('iscsi')
+    target = Target(fabric_module, target_name)
+    return TPG(target, 1)
+
+
+def initiator_list(req, standalone_only=False):
+    """Return a list of initiator
+
+    Iterate all iSCSI rtslib-fb.NodeACL via rtslib-fb.TPG.node_acls().
+    Args:
+        req (TargetHandler):  Reserved for future use.
+        standalone_only (bool):
+            When standalone_only is True, only return initiator which is not
+            in any NodeACLGroup (NodeACL.tag is None).
+    Returns:
+        [
+            {
+                'init_id':  NodeACL.node_wwn,
+                'init_type': 'iscsi',
+            },
+        ]
+
+        Currently, targetd only support iscsi which means 'init_type' is
+        always 'iscsi'.
+    Raises:
+        N/A
+    """
+    def _condition(node_acl, standalone_only):
+        if standalone_only and node_acl.tag is not None:
+            return False
+        else:
+            return True
+
+    return list(
+        {'init_id': node_acl.node_wwn, 'init_type': 'iscsi'}
+        for node_acl in _get_iscsi_tpg().node_acls
+        if _condition(node_acl, standalone_only))
