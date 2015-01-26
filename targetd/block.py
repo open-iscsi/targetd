@@ -111,6 +111,7 @@ def initialize(config_dict):
         access_group_create=access_group_create,
         access_group_destroy=access_group_destroy,
         access_group_init_add=access_group_init_add,
+        access_group_init_del=access_group_init_del,
     )
 
 
@@ -462,4 +463,20 @@ def access_group_init_add(req, ag_name, init_id, init_type):
                 "Requested init_id is in use")
 
     NodeACLGroup(tpg, ag_name).add_acl(init_id)
+    RTSRoot().save_to_file()
+
+
+def access_group_init_del(req, ag_name, init_id, init_type):
+    if init_type != 'iscsi':
+        raise TargetdError(
+            TargetdError.NO_SUPPORT, "Only support iscsi")
+
+    tpg = _get_iscsi_tpg()
+
+    # Pre-check:
+    #   1. Initiator is not in requested access group, return silently.
+    if init_id not in list(NodeACLGroup(tpg, ag_name).wwns):
+        return
+
+    NodeACLGroup(tpg, ag_name).remove_acl(init_id)
     RTSRoot().save_to_file()

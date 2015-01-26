@@ -187,6 +187,19 @@ Returns:
 Errors:
     -52:    Exists initiator. Requested 'init_id' is in use
 
+### access_group_init_del(ag_name, init_id, init_type)
+Remove a initiator from an access group.
+If requested initiator not in defined access group, return silently.
+If defined access group does not exist, return silently.
+Parameters:
+    ag_name (str): Access group name
+    init_id (str): iSCSI initiator address
+    init_type (str): Reserved for future use. Should be set as 'iscsi'
+Returns:
+    N/A
+Errors:
+    N/A
+
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The
