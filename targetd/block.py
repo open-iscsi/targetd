@@ -114,6 +114,7 @@ def initialize(config_dict):
         access_group_init_del=access_group_init_del,
         access_group_map_list=access_group_map_list,
         access_group_map_create=access_group_map_create,
+        access_group_map_destroy=access_group_map_destroy,
     )
 
 
@@ -570,4 +571,15 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
             h_lun_id = free_h_lun_ids.pop()
 
     node_acl_group.mapped_lun_group(h_lun_id, tpg_lun)
+    RTSRoot().save_to_file()
+
+
+def access_group_map_destroy(req, pool_name, vol_name, ag_name):
+    tpg = _get_iscsi_tpg()
+    node_acl_group = NodeACLGroup(tpg, ag_name)
+    tpg_lun = _tpg_lun_of(tpg, pool_name, vol_name)
+    for map_group in node_acl_group.mapped_lun_groups:
+        if map_group.tpg_lun == tpg_lun:
+            map_group.delete()
+
     RTSRoot().save_to_file()

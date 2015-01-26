@@ -236,6 +236,17 @@ Errors:
     -1000:  No free host_lun_id. LUN ID between 0 ~ 255 is in use.
     -200:   Access group not found.
 
+### access_group_map_destroy(pool_name, vol_name, ag_name)
+Revoke the rw access of certain access group to defined volume.
+Parameters:
+    pool_name (str): The name of pool which defined volume belongs to.
+    vol_name (str): The name of volume.
+    ag_name (str): Access group name
+Returns:
+    N/A
+Errors:
+    N/A
+
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The
