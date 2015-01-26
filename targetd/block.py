@@ -112,6 +112,7 @@ def initialize(config_dict):
         access_group_destroy=access_group_destroy,
         access_group_init_add=access_group_init_add,
         access_group_init_del=access_group_init_del,
+        access_group_map_list=access_group_map_list,
     )
 
 
@@ -480,3 +481,40 @@ def access_group_init_del(req, ag_name, init_id, init_type):
 
     NodeACLGroup(tpg, ag_name).remove_acl(init_id)
     RTSRoot().save_to_file()
+
+
+def access_group_map_list(req):
+    """
+    Return a list of dictionaries in this format:
+        {
+            'ag_name': ag_name,
+            'h_lun_id': h_lun_id,   # host side LUN ID
+            'pool_name': pool_name,
+            'vol_name': vol_name,
+        }
+    """
+    results = []
+    tpg = _get_iscsi_tpg()
+    vg_name_2_pool_name_dict = {}
+    for pool_name in pools:
+        vg_name = get_vg_lv(pool_name)[0]
+        vg_name_2_pool_name_dict[vg_name] = pool_name
+
+    for node_acl_group in tpg.node_acl_groups:
+        for mapped_lun_group in node_acl_group.mapped_lun_groups:
+            tpg_lun = mapped_lun_group.tpg_lun
+            so_name = tpg_lun.storage_object.name
+            (vg_name, vol_name) = so_name.split(":")
+            # When user delete old volume and the created new one with
+            # idential name. The mapping status will be kept.
+            # Hence we don't expose volume UUID here.
+            results.append(
+                {
+                    'ag_name': node_acl_group.name,
+                    'h_lun_id': mapped_lun_group.mapped_lun,
+                    'pool_name': vg_name_2_pool_name_dict[vg_name],
+                    'vol_name': vol_name,
+                }
+            )
+
+    return results

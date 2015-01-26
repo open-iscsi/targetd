@@ -200,6 +200,26 @@ Returns:
 Errors:
     N/A
 
+### access_group_map_list()
+Query volume mapping status of all access groups.
+Parameters:
+    N/A
+Returns:
+    [
+        {
+            'ag_name': str,
+            'h_lun_id': int,
+            'pool_name': str,
+            'vol_name': str,
+        }
+    ]
+    The 'ag_name' is the name of access group.
+    The 'h_lun_id' is the SCSI LUN ID seen by iSCSI initiator.
+    The 'pool_name' is the name of pool which volume is belonging to.
+    The 'vol_name' is the name of volume.
+Errors:
+    N/A
+
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The
