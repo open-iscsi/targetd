@@ -113,7 +113,9 @@ class TargetHandler(BaseHTTPRequestHandler):
                 log.debug(traceback.format_exc())
                 raise
             except TypeError:
-                error = (-32602, "invalid method parameter(s)")
+                error = (
+                    TargetdError.INVALID_PARMETER,
+                    "invalid method parameter(s)")
                 log.debug(traceback.format_exc())
                 raise
             except TargetdError, td:
@@ -185,7 +187,7 @@ def load_config(config_path):
     # convert log level to int
     config['log_level'] = getattr(log, config['log_level'].upper(), log.INFO)
     log.basicConfig(level=config['log_level'])
-    
+
 
 def update_mapping():
     # wait until now so submodules can import 'main' safely

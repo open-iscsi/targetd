@@ -18,10 +18,10 @@
 import contextlib
 from rtslib_fb import (
     Target, TPG, NodeACL, FabricModule, BlockStorageObject, RTSRoot,
-    NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS)
+    NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS, NodeACLGroup)
 import lvm
 from main import TargetdError
-from utils import ignored
+from utils import ignored, name_check
 
 
 def get_vg_lv(pool_name):
@@ -108,6 +108,7 @@ def initialize(config_dict):
         initiator_set_auth=initiator_set_auth,
         initiator_list=initiator_list,
         access_group_list=access_group_list,
+        access_group_create=access_group_create,
     )
 
 
@@ -397,3 +398,32 @@ def access_group_list(req):
             'init_type': 'iscsi',
         }
         for node_acl_group in _get_iscsi_tpg().node_acl_groups)
+
+
+def access_group_create(req, ag_name, init_id, init_type):
+    if init_type != 'iscsi':
+        raise TargetdError(
+            TargetdError.NO_SUPPORT, "Only support iscsi")
+
+    name_check(ag_name)
+
+    tpg = _get_iscsi_tpg()
+
+    # Pre-check:
+    #   1. Name conflict: requested name is in use
+    #   2. Initiator conflict:  request initiator is in use
+
+    for node_acl_group in tpg.node_acl_groups:
+        if node_acl_group.name == ag_name:
+            raise TargetdError(
+                TargetdError.NAME_CONFLICT,
+                "Requested access group name is in use")
+
+    if init_id in list(i.node_wwn for i in tpg.node_acls):
+        raise TargetdError(
+            TargetdError.EXISTS_INITIATOR,
+            "Requested init_id is in use")
+
+    node_acl_group = NodeACLGroup(tpg, ag_name)
+    node_acl_group.add_acl(init_id)
+    RTSRoot().save_to_file()

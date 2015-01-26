@@ -149,6 +149,22 @@ Returns:
 Errors:
     N/A
 
+### access_group_create(ag_name, init_id, init_type)
+Create new access group.
+
+Parameters:
+    ag_name (str): Access group name
+    init_id (str): iSCSI initiator address
+    init_type (str): Reserved for future use. Should be set as 'iscsi'
+Returns:
+    N/A
+Errors:
+    -32602: Invalid parameter. Provided 'ag_name' is illegal. Check
+            'Conventions' for detail.
+    -153:   No support. The 'init_type' is not 'iscsi'
+    -50:    Name conflict. Requested 'ag_name' is in use
+    -52:    Exists initiator. Requested 'init_id' is in use
+
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The

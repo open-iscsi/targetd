@@ -17,6 +17,7 @@
 
 from subprocess import Popen, PIPE
 from contextlib import contextmanager
+import re
 
 @contextmanager
 def ignored(*exceptions):
@@ -26,7 +27,22 @@ def ignored(*exceptions):
         pass
 
 
+_NAME_REGEX = '^[a-zA-Z0-9_-]+$'
+
+
+def name_check(name):
+    if not re.match(_NAME_REGEX, name):
+        raise TargetdError(
+            TargetdError.INVALID_ARGUMENT,
+            "Illegal name, should match: %s" % _NAME_REGEX)
+
+
 class TargetdError(Exception):
+    INVALID_ARGUMENT = -32602
+    NO_SUPPORT = -153
+    NAME_CONFLICT = -50
+    EXISTS_INITIATOR = -52
+
     def __init__(self, error_code, *args, **kwargs):
         Exception.__init__(self, *args, **kwargs)
         self.error = error_code
