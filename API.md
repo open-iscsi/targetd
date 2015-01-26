@@ -122,6 +122,33 @@ Returns:
 Errors:
     N/A
 
+Access Group operations
+-----------------------
+Access Group is a group of initiators which sharing the same volume mapping
+status.
+
+### access_group_list()
+List all access groups.
+
+Parameters:
+    N/A
+Returns:
+    [
+        {
+            'name': str
+            'init_ids': list(str),
+            'init_type': str,
+        },
+    ]
+    The 'name' is the name of acccess group.
+    The 'init_ids' of result is the iSCSI IQN/NAA/EUI address of initiators
+    which belong to current access group.
+    Example: ['iqn.2000-04.com.example:someone-01']
+    The 'init_type' is reserved for future use, currently, it is 'iscsi'.
+
+Errors:
+    N/A
+
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The

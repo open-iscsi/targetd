@@ -16,8 +16,9 @@
 # Routines to export block devices over iscsi.
 
 import contextlib
-from rtslib import (Target, TPG, NodeACL, FabricModule, BlockStorageObject, RTSRoot,
-                    NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS)
+from rtslib_fb import (
+    Target, TPG, NodeACL, FabricModule, BlockStorageObject, RTSRoot,
+    NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS)
 import lvm
 from main import TargetdError
 from utils import ignored
@@ -106,6 +107,7 @@ def initialize(config_dict):
         export_destroy=export_destroy,
         initiator_set_auth=initiator_set_auth,
         initiator_list=initiator_list,
+        access_group_list=access_group_list,
     )
 
 
@@ -367,3 +369,31 @@ def initiator_list(req, standalone_only=False):
         {'init_id': node_acl.node_wwn, 'init_type': 'iscsi'}
         for node_acl in _get_iscsi_tpg().node_acls
         if _condition(node_acl, standalone_only))
+
+
+def access_group_list(req):
+    """Return a list of access group
+
+    Iterate all iSCSI rtslib-fb.NodeACLGroup via rtslib-fb.TPG.node_acls().
+    Args:
+        req (TargetHandler):  Reserved for future use.
+    Returns:
+        [
+            {
+                'name':     str,
+                'init_ids':  list(str),
+                'init_type': 'iscsi',
+            },
+        ]
+        Currently, targetd only support iscsi which means init_type is always
+        'iscsi'.
+    Raises:
+        N/A
+    """
+    return list(
+        {
+            'name': node_acl_group.name,
+            'init_ids': list(node_acl_group.wwns),
+            'init_type': 'iscsi',
+        }
+        for node_acl_group in _get_iscsi_tpg().node_acl_groups)
