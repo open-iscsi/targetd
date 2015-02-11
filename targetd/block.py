@@ -582,4 +582,11 @@ def access_group_map_destroy(req, pool_name, vol_name, ag_name):
         if map_group.tpg_lun == tpg_lun:
             map_group.delete()
 
+    if not len(list(tpg_lun.mapped_luns)):
+        # If LUN is not masked to any access group or initiator
+        # remove LUN instance.
+        lun_so = tpg_lun.storage_object
+        tpg_lun.delete()
+        lun_so.delete()
+
     RTSRoot().save_to_file()
