@@ -242,7 +242,7 @@ def export_destroy(req, pool, vol, initiator_wwn):
             tpg_lun = mlun.tpg_lun
             mlun.delete()
             # be tidy and delete unused tpg lun mappings?
-            if not len(list(tpg_lun.mapped_luns)):
+            if not any(tpg_lun.mapped_luns):
                 so = tpg_lun.storage_object
                 tpg_lun.delete()
                 so.delete()
@@ -252,11 +252,11 @@ def export_destroy(req, pool, vol, initiator_wwn):
                                  (vol, initiator_wwn))
 
     # Clean up tree if branch has no leaf
-    if not len(list(na.mapped_luns)):
+    if not any(na.mapped_luns):
         na.delete()
-        if not len(list(tpg.node_acls)):
+        if not any(tpg.node_acls):
             tpg.delete()
-            if not len(list(t.tpgs)):
+            if not any(t.tpgs):
                 t.delete()
 
     RTSRoot().save_to_file()
@@ -541,7 +541,7 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
 
     # Pre-Check:
     #   1. Already mapped to requested access group, return None
-    if len(list(tpg_lun.mapped_luns)):
+    if any(tpg_lun.mapped_luns):
         tgt_map_list = access_group_map_list(req)
         for tgt_map in tgt_map_list:
             if tgt_map['ag_name'] == ag_name and \
@@ -551,7 +551,7 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
                 return None
 
     node_acl_group = NodeACLGroup(tpg, ag_name)
-    if len(list(node_acl_group.wwns)) == 0:
+    if not any(node_acl_group.wwns):
         # Non-exist access group means volume mapping status will not be
         # stored. This should be considered as an error instead of sliently
         # return.
@@ -582,7 +582,7 @@ def access_group_map_destroy(req, pool_name, vol_name, ag_name):
         if map_group.tpg_lun == tpg_lun:
             map_group.delete()
 
-    if not len(list(tpg_lun.mapped_luns)):
+    if not any(tpg_lun.mapped_luns):
         # If LUN is not masked to any access group or initiator
         # remove LUN instance.
         lun_so = tpg_lun.storage_object
