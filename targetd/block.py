@@ -552,9 +552,9 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
 
     node_acl_group = NodeACLGroup(tpg, ag_name)
     if not any(node_acl_group.wwns):
-        # Non-exist access group means volume mapping status will not be
-        # stored. This should be considered as an error instead of sliently
-        # return.
+        # Non-existent access group means volume mapping status will not be
+        # stored. This should be considered as an error instead of silently
+        # returning.
         raise TargetdError(
             TargetdError.NOT_FOUND_ACCESS_GROUP, "Access group not found")
 
