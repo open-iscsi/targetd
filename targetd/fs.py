@@ -88,11 +88,19 @@ def split_stdout(out):
     """
     Split the text out as an array of text arrays.
     """
+    strip_it = '<FS_TREE>/'
+
     rc = []
     for line in out.split('\n'):
         elem = line.split(' ')
         if len(elem) > 1:
-            rc.append(elem)
+            tmp = []
+            for z in elem:
+                if z.startswith(strip_it):
+                    tmp.append(z[len(strip_it):])
+                else:
+                    tmp.append(z)
+            rc.append(tmp)
     return rc
 
 
