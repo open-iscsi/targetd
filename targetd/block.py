@@ -292,9 +292,24 @@ def block_pools(req):
         # we can only get used percent, so calculate an approx. free bytes
         # These return an integer in of millionths of a percent, so
         # add them and get a decimalization by dividing by another 100
-        used_pct = float(thinp.getProperty("data_percent")[0] + \
-                         thinp.getProperty("metadata_percent")[0])/100000000
-        return int(thinp.getSize() * (1 - used_pct))
+        #
+        # Note: It is possible for percentages to return a (-1) which depending
+        # on lvm2app library version can be returned as -1 or 2**64-1
+
+        unsigned_val = (2 ** 64 - 1)
+        free_bytes = thinp.getSize()
+        dp = thinp.getProperty("data_percent")[0]
+        mp = thinp.getProperty("metadata_percent")[0]
+
+        if dp != -1 and dp != unsigned_val and mp != -1 and mp != unsigned_val:
+            used_pct = float(dp + mp) / 100000000
+            fs = int(free_bytes * (1 - used_pct))
+
+            # Sanity checking, domain of free bytes should be [0..total size]
+            if 0 <= fs < free_bytes:
+                free_bytes = fs
+
+        return free_bytes
 
     for pool in pools:
         vg_name, tp_name = get_vg_lv(pool)
