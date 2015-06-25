@@ -193,6 +193,7 @@ def update_mapping():
     # wait until now so submodules can import 'main' safely
     import block
     import fs
+    import initiator
 
     try:
         mapping.update(block.initialize(config))
@@ -204,6 +205,12 @@ def update_mapping():
         mapping.update(fs.initialize(config))
     except Exception as e:
         log.error("Error initializing fs module: %s" % e)
+        raise
+
+    try:
+        mapping.update(initiator.initialize(config))
+    except Exception as e:
+        log.error("Error initializing initiator module: %s" % e)
         raise
 
     # one method requires output from both modules
