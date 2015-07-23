@@ -38,6 +38,7 @@ def name_check(name):
 
 
 class TargetdError(Exception):
+    INVALID_PARAMETER = -32600
     INVALID_ARGUMENT = -32602
     NO_SUPPORT = -153
     NAME_CONFLICT = -50
