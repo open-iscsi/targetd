@@ -156,8 +156,9 @@ def destroy(req, pool, name):
 
         so_name = "%s:%s" % (pool, name)
         if so_name in (lun.storage_object.name for lun in tpg.luns):
-            raise TargetdError(-303, "Volume '%s' cannot be "
-                                     "removed while exported" % name)
+            raise TargetdError(TargetdError.VOLUME_MASKED,
+                               "Volume '%s' cannot be "
+                               "removed while exported" % name)
 
     with vgopen(get_vg_lv(pool)[0]) as vg:
         vg.lvFromName(name).remove()

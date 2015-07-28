@@ -44,6 +44,7 @@ class TargetdError(Exception):
     EXISTS_INITIATOR = -52
     NO_FREE_HOST_LUN_ID = -1000
     NOT_FOUND_ACCESS_GROUP = -200
+    VOLUME_MASKED = -303
 
     def __init__(self, error_code, *args, **kwargs):
         Exception.__init__(self, *args, **kwargs)
