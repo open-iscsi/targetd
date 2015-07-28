@@ -136,6 +136,14 @@ def volumes(req, pool):
 
 
 def create(req, pool, name, size):
+
+    # Check to ensure that we don't have a volume with this name already,
+    # lvm will fail if we try to create a LV with a duplicate name
+    if any(v['name'] == name for v in volumes(req, pool)):
+        raise TargetdError(
+            TargetdError.NAME_CONFLICT,
+            "Volume with that name exists")
+
     vg_name, lv_pool = get_vg_lv(pool)
     with vgopen(vg_name) as vg:
         if lv_pool:
@@ -171,6 +179,11 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
     Create a new volume that is a copy of an existing one.
     Since 0.6, requires thinp support.
     """
+    if any(v['name'] == vol_new for v in volumes(req, pool)):
+        raise TargetdError(
+            TargetdError.NAME_CONFLICT,
+            "Volume with that name exists")
+
     vg_name, thin_pool = get_vg_lv(pool)
 
     with vgopen(vg_name) as vg:
