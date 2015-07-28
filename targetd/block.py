@@ -154,7 +154,9 @@ def destroy(req, pool, name):
         t = Target(fm, target_name, mode='lookup')
         tpg = TPG(t, 1, mode='lookup')
 
-        so_name = "%s:%s" % (pool, name)
+        vg_name, lv_pool = get_vg_lv(pool)
+        so_name = "%s:%s" % (vg_name, name)
+
         if so_name in (lun.storage_object.name for lun in tpg.luns):
             raise TargetdError(TargetdError.VOLUME_MASKED,
                                "Volume '%s' cannot be "
