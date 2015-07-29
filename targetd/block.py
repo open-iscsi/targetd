@@ -136,6 +136,14 @@ def volumes(req, pool):
 
 
 def create(req, pool, name, size):
+
+    # Check to ensure that we don't have a volume with this name already,
+    # lvm will fail if we try to create a LV with a duplicate name
+    if any(v['name'] == name for v in volumes(req, pool)):
+        raise TargetdError(
+            TargetdError.NAME_CONFLICT,
+            "Volume with that name exists")
+
     vg_name, lv_pool = get_vg_lv(pool)
     with vgopen(vg_name) as vg:
         if lv_pool:
@@ -154,10 +162,13 @@ def destroy(req, pool, name):
         t = Target(fm, target_name, mode='lookup')
         tpg = TPG(t, 1, mode='lookup')
 
-        so_name = "%s:%s" % (pool, name)
+        vg_name, lv_pool = get_vg_lv(pool)
+        so_name = "%s:%s" % (vg_name, name)
+
         if so_name in (lun.storage_object.name for lun in tpg.luns):
-            raise TargetdError(-303, "Volume '%s' cannot be "
-                                     "removed while exported" % name)
+            raise TargetdError(TargetdError.VOLUME_MASKED,
+                               "Volume '%s' cannot be "
+                               "removed while exported" % name)
 
     with vgopen(get_vg_lv(pool)[0]) as vg:
         vg.lvFromName(name).remove()
@@ -168,6 +179,11 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
     Create a new volume that is a copy of an existing one.
     Since 0.6, requires thinp support.
     """
+    if any(v['name'] == vol_new for v in volumes(req, pool)):
+        raise TargetdError(
+            TargetdError.NAME_CONFLICT,
+            "Volume with that name exists")
+
     vg_name, thin_pool = get_vg_lv(pool)
 
     with vgopen(vg_name) as vg:
