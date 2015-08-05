@@ -38,7 +38,7 @@ import time
 import socket
 
 user = "admin"
-password = "targetd"
+password = ""
 url = "http://localhost:18700/targetrpc"
 host = 'localhost'
 port = 18700
@@ -46,6 +46,7 @@ path = '/targetrpc'
 id = 1
 ssl = False
 pool = 'vg-targetd'
+host_name = "192.168.122.239"
 
 def jsonrequest(method, params=None):
     print "+"*20, method
@@ -70,7 +71,7 @@ def jsonrequest(method, params=None):
         request = urllib2.Request(url, data, headers)
         response_obj = urllib2.urlopen(request)
     response_data = response_obj.read()
-    #print('Got response: %s' % response_data)
+    print('Got response: %s' % response_data)
     response = json.loads(response_data)
     if response.get('error') is not None:
         if response['error']['code'] <= 0:
@@ -79,6 +80,14 @@ def jsonrequest(method, params=None):
             print "Invalid error code, should be negative!"
     else:
         return response.get('result')
+
+
+jsonrequest("discover_portal", dict(hostname=host_name)
+jsonrequest("delete_discovery", dict(hostname=host_name))
+jsonrequest("display_discovery", dict(hostname=host_name))
+jsonrequest("display_discovery_summary")
+
+sys.exit(1)
 
 results = jsonrequest("export_list")
 for result in results:
