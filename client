@@ -46,7 +46,7 @@ path = '/targetrpc'
 id = 1
 ssl = False
 pool = 'vg-targetd'
-host_name = "192.168.122.239"
+host_name = "localhost"
 
 def jsonrequest(method, params=None):
     print "+"*20, method
@@ -86,8 +86,6 @@ jsonrequest("discover_portal", dict(hostname=host_name)
 jsonrequest("delete_discovery", dict(hostname=host_name))
 jsonrequest("display_discovery", dict(hostname=host_name))
 jsonrequest("display_discovery_summary")
-
-sys.exit(1)
 
 results = jsonrequest("export_list")
 for result in results:
