@@ -3,9 +3,7 @@ Remote configuration of a "Konnector" storage appliance
 
 "Konnector" storage nodes "import" storage from a fabric (iSCSI, iSER, SAS or FC) and use that storage to create MD RAID and LVM Volumes.
 
-This project will use targetd as a template, as targetd already has components that can be reused for this Konnector project, namely the jsonrpc-2.0 API as well as the LVM management.
-
-targetd's API will be extended to handle LVM PV/VG creation as well as for iSCSI storage to be connected.
+This project is a fork of Andy Grover's targetd and adds iscsi initiator management functionality.
 
 Getting Started
 ---------------
@@ -76,9 +74,7 @@ Use the following instructions to move and edit your configuration file:
 /targetd$ vi /etc/target/targetd.yaml
 ```
 
-If a user sets a "fs_pool" in his config, that target directory *must* be a formatted btrfs mount point, else he will get an error.
-
-If the block pools don't exist and have exactly the name mentioned, Konnector will fail to launch with an error.
+Setting "fs_pool" in the config to one or more paths require them to match formatted btrfs mount point, else Konnector will not start and throw an error.
 
 ```py
 $ cd
@@ -89,7 +85,7 @@ $ cd
 $ targetd
 ```
 
-**To run our unit tests**
+**To run unit tests**
 ```py
 $ py.test -q tests/test_iscsi_init.py -vv
 ```
