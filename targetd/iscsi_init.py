@@ -3,7 +3,6 @@ import StringIO
 import json
 import logging as log
 from collections import defaultdict
-import utils
 from utils import TargetdError, invoke
 
 DISCOVERY_METHODS = ["sendtargets", "isns"]
@@ -168,11 +167,11 @@ def validate_string(msg):
     Raise an error if the specified string is empty,
     longer than 255 chars or not ASCII encoded
     """
+    if len(msg) > 255:
+        raise TargetdError(STRING_TOO_LONG, "String too long")
+    elif msg == "":
+        raise TargetdError(EMPTY_STRING, "Unauthorised empty string")
     try:
-        if len(msg) > 255:
-            raise TargetdError(STRING_TOO_LONG, "String too long")
-        elif msg == "":
-            raise TargetdError(EMPTY_STRING, "Unauthorised empty string")
         msg.decode('ascii')
     except UnicodeDecodeError:
         raise TargetdError(NO_ASCSII_STRING,
@@ -182,7 +181,7 @@ def validate_string(msg):
 def get_error_code(iscsi_error_code):
     """
     Returns the error code of our specification corresponding
-    to the error code of iscsi specification
+    to the error code of iscsi specification or -1 if unknown
     """
     dict_error = {ISCSI_ERR_LOGIN_AUTH_FAILED: LOGIN_FAILED,
                   ISCSI_ERR_TRANS: NO_ROUTE_TO_HOST,
@@ -191,11 +190,7 @@ def get_error_code(iscsi_error_code):
                   ISCSI_ERR_NO_OBJS_FOUND: NO_RECORDS_FOUND,
                   ISCSI_ERR_SESS_EXISTS: SESSION_LOGGED_IN,
                   ISCSI_ERR_ISNS_QUERY: QUERY_FAILURE}
-    if iscsi_error_code not in dict_error:
-        return -1
-    else:
-        return dict_error[iscsi_error_code]
-
+    return dict_error.get(iscsi_error_code, -1)
 
 def discovery_wrapper(hostname=None, discovery_method=None, operation=None,
                       op_params=(), discover=False):
