@@ -3,13 +3,13 @@
 from distutils.core import setup
 
 setup(
-    name = 'targetd',
-    version = '0.8.1',
+    name = 'Konnector',
+    version = '0.0.1',
     description = 'Linux remote storage API daemon',
     license = 'GPLv3',
-    maintainer = 'Andy Grover',
-    maintainer_email = 'agrover@redhat.com',
-    url = 'http://github.com/agrover/targetd',
+    maintainer = 'Victor Brecheteau',
+    maintainer_email = 'vb@mpstor.com',
+    url = 'http://github.com/mpstor',
     packages = ['targetd'],
     scripts = ['scripts/targetd'],
     )
