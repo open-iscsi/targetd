@@ -193,6 +193,7 @@ def update_mapping():
     # wait until now so submodules can import 'main' safely
     import block
     import fs
+    import iscsi_init
 
     try:
         mapping.update(block.initialize(config))
@@ -204,6 +205,12 @@ def update_mapping():
         mapping.update(fs.initialize(config))
     except Exception as e:
         log.error("Error initializing fs module: %s" % e)
+        raise
+
+    try:
+        mapping.update(iscsi_init.initialize(config))
+    except Exception as e:
+        log.error("Error initializing iscsi_init module: %s" % e)
         raise
 
     # one method requires output from both modules
@@ -219,14 +226,14 @@ def main():
     try:
         load_config(default_config_path)
     except AttributeError:
-        return -1
+        raise
 
     setproctitle.setproctitle("targetd")
 
     try:
         update_mapping()
     except:
-        return -1
+        raise
 
     if config['ssl']:
         server_class = TLSHTTPService
@@ -243,6 +250,6 @@ def main():
         log.info("SIGINT received, shutting down")
         if server is not None:
             server.socket.close()
-        return -1
+        raise
 
     return 0
