@@ -38,7 +38,6 @@ import socket
 
 user = "admin"
 password = "targetd"
-url = "http://localhost:18700/targetrpc"
 host = 'localhost'
 port = 18700
 path = '/targetrpc'
