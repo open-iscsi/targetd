@@ -95,7 +95,8 @@ def initialize(config_dict):
         # vg and a thinpool from that vg: BAD
         #
         if thin_pool and vg_name in pools:
-            raise TargetdError(-1, "VG pool and thin pool from same VG not supported")
+            raise TargetdError(
+                -1, "VG pool and thin pool from same VG not supported")
 
     return dict(
         vol_list=volumes,

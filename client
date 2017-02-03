@@ -47,10 +47,12 @@ id = 1
 ssl = False
 pool = 'vg-targetd'
 
+
 def jsonrequest(method, params=None):
     print "+"*20, method
     global id
-    data = json.dumps(dict(id=id, method=method, params=params, jsonrpc="2.0"))
+    data = json.dumps(
+        dict(id=id, method=method, params=params, jsonrpc="2.0"))
     id += 1
     auth = ('%s:%s' % (user, password)).encode('base64')[:-1]
     headers = {'Content-Type': 'application/json',
@@ -82,7 +84,8 @@ def jsonrequest(method, params=None):
 
 results = jsonrequest("export_list")
 for result in results:
-    print "export", result['initiator_wwn'], result['pool'], result['vol_name'], result['lun']
+    print "export", result['initiator_wwn'], result['pool'],\
+        result['vol_name'], result['lun']
 
 #sys.exit(1)
 
@@ -100,21 +103,28 @@ try:
     jsonrequest('vol_create', dict(pool=pool, name="test2", size=4000000))
 
     try:
-        jsonrequest("vol_copy", dict(pool=pool, vol_orig="test2", vol_new="test2-copy"))
+        jsonrequest("vol_copy", dict(pool=pool, vol_orig="test2",
+                                     vol_new="test2-copy"))
 
         try:
-            jsonrequest("export_create", dict(pool=pool, vol="test2", lun=5, initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+            jsonrequest("export_create",
+                        dict(pool=pool, vol="test2",
+                             lun=5,
+                             initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
             print "waiting"
             time.sleep(5)
             results = jsonrequest("export_list")
             for result in results:
-                print "export", result['initiator_wwn'], result['pool'], result['vol_name'], result['lun'], result['vol_uuid']
+                print "export", result['initiator_wwn'], result['pool'], \
+                    result['vol_name'], result['lun'], result['vol_uuid']
             time.sleep(5)
             print "go!"
 
         finally:
-            jsonrequest("export_destroy", dict(pool=pool, vol="test2", initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+            jsonrequest("export_destroy",
+                        dict(pool=pool, vol="test2",
+                             initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
     finally:
         jsonrequest("vol_destroy", dict(pool=pool, name="test2-copy"))
@@ -122,4 +132,3 @@ try:
 finally:
     jsonrequest("vol_destroy", dict(pool=pool, name="test2"))
     print "done"
-

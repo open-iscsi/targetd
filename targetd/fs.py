@@ -344,5 +344,5 @@ def nfs_export_remove(req, host, path):
             found = True
 
     if not found:
-        raise TargetdError(-400, "NFS export to remove not found %s:%s",
-                       (host, path))
+        raise TargetdError(
+            -400, "NFS export to remove not found %s:%s", (host, path))

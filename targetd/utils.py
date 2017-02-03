@@ -19,6 +19,7 @@ from subprocess import Popen, PIPE
 from contextlib import contextmanager
 import re
 
+
 @contextmanager
 def ignored(*exceptions):
     try:
