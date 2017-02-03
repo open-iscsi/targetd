@@ -114,8 +114,8 @@ class TargetHandler(BaseHTTPRequestHandler):
                 raise
             except TypeError:
                 error = (
-                    TargetdError.INVALID_PARMETER,
-                    "invalid method parameter(s)")
+                    TargetdError.INVALID_ARGUMENT,
+                    "invalid method arguments(s)")
                 log.debug(traceback.format_exc())
                 raise
             except TargetdError, td:
