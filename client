@@ -41,17 +41,17 @@ password = "targetd"
 host = 'localhost'
 port = 18700
 path = '/targetrpc'
-id = 1
+id_num = 1
 ssl = False
 pool = 'vg-targetd'
 
 
 def jsonrequest(method, params=None):
     print "+"*20, method
-    global id
+    global id_num
     data = json.dumps(
-        dict(id=id, method=method, params=params, jsonrpc="2.0"))
-    id += 1
+        dict(id=id_num, method=method, params=params, jsonrpc="2.0"))
+    id_num += 1
     auth = ('%s:%s' % (user, password)).encode('base64')[:-1]
     headers = {'Content-Type': 'application/json',
                'Authorization': 'Basic %s' % (auth,)}
