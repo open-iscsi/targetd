@@ -68,7 +68,7 @@ def vgopen(pool_name):
         lib_calls = 0
 
 pools = []
-target_name = None
+target_name = ""
 lib_calls = 0
 
 
