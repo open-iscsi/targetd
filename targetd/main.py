@@ -60,6 +60,7 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         rpcdata = ""
         error = None
+        id_num = 0
 
         # get basic auth string, strip "Basic "
         try:
@@ -79,7 +80,6 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         try:
             error = (-1, "jsonrpc error")
-            self.id = None
             try:
                 content_len = int(self.headers.getheader('content-length'))
                 req = json.loads(self.rfile.read(content_len))
@@ -97,7 +97,7 @@ class TargetHandler(BaseHTTPRequestHandler):
                 if version != "2.0":
                     raise ValueError
                 method = req['method']
-                self.id = int(req['id'])
+                id_num = int(req['id'])
                 params = req.get('params', None)
             except (KeyError, ValueError):
                 error = (-32600, "not a valid jsonrpc-2.0 request")
@@ -126,12 +126,12 @@ class TargetHandler(BaseHTTPRequestHandler):
                 log.debug(traceback.format_exc())
                 raise
 
-            rpcdata = json.dumps(dict(result=result, id=self.id))
+            rpcdata = json.dumps(dict(result=result, id=id_num))
 
         except:
             log.debug('Error=%s, msg=%s' % error)
             rpcdata = json.dumps(
-                dict(error=dict(code=error[0], message=error[1]), id=self.id))
+                dict(error=dict(code=error[0], message=error[1]), id=id_num))
         finally:
             self.wfile.write(rpcdata)
 
