@@ -225,7 +225,8 @@ def main():
 
     try:
         update_mapping()
-    except:
+    except Exception as e:
+        log.error(e.message)
         return -1
 
     if config['ssl']:
