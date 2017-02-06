@@ -28,6 +28,7 @@ import ssl
 import traceback
 import logging as log
 from utils import TargetdError
+import stat
 
 default_config_path = "/etc/target/targetd.yaml"
 
@@ -158,6 +159,35 @@ class TLSHTTPService(HTTPService):
             suppress_ragged_eofs=True)
         return self.RequestHandlerClass(sockssl, addr, self)
 
+    @staticmethod
+    def _verify_ssl_file(f):
+        rc = False
+        # Check the SSL files
+        if os.path.exists(f):
+            ss = os.stat(f)
+            if stat.S_ISREG(ss.st_mode):
+                if ss.st_uid == 0:
+                    if ss.st_mode & 0077 == 0 and \
+                            bool(ss.st_mode & stat.S_IRUSR):
+                        rc = True
+                    else:
+                        log.error("SSL file: '%s' incorrect permissions (%s), "
+                                  "ensure file is _not_ readable or writeable "
+                                  "by anyone other than owner, and that owner "
+                                  "can read." % (f, oct(ss.st_mode & 0777)))
+                else:
+                    log.error("SSL file: '%s' not owned by root." % f)
+            else:
+                log.error("SSL file: '%s' is not a regular file." % f)
+        else:
+            log.error("SSL file: '%s' does not exist." % f)
+        return rc
+
+    @staticmethod
+    def verify_certificates():
+        return (TLSHTTPService._verify_ssl_file(config["ssl_key"]) and
+                TLSHTTPService._verify_ssl_file(config["ssl_cert"]))
+
 
 def load_config(config_path):
     global config
@@ -231,6 +261,11 @@ def main():
 
     if config['ssl']:
         server_class = TLSHTTPService
+
+        # Make sure certificates are good to go!
+        if not TLSHTTPService.verify_certificates():
+            return -1
+
         note = "(TLS yes)"
     else:
         server_class = HTTPService
