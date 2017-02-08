@@ -59,9 +59,8 @@ def initialize(config_dict):
         try:
             create_sub_volume(os.path.join(pool, fs_path))
             create_sub_volume(os.path.join(pool, ss_path))
-            log.error('Unable to create required subvolumes')
-            log.error(e.message)
         except TargetdError as e:
+            log.error('Unable to create required subvolumes {0}'.format(e))
             raise
 
     return dict(

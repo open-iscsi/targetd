@@ -73,6 +73,7 @@ class TargetHandler(BaseHTTPRequestHandler):
             auth_str = base64.b64decode(auth_bytes).decode('utf-8')
             in_user, in_pass = auth_str.split(":")
         except Exception as e:
+            log.error(traceback.format_exc())
             self.send_error(400)
             return
 
@@ -133,9 +134,9 @@ class TargetHandler(BaseHTTPRequestHandler):
                 raise
 
             rpcdata = json.dumps(dict(result=result, id=id_num))
-
         except:
-            log.debug('Error=%s, msg=%s' % error)
+            log.debug(traceback.format_exc())
+            log.debug('Error=%s, msg=%s' % (error[0], error[1]))
             rpcdata = json.dumps(
                 dict(error=dict(code=error[0], message=error[1]), id=id_num))
         finally:
@@ -261,7 +262,7 @@ def main():
     try:
         update_mapping()
     except Exception as e:
-        log.error(e.message)
+        log.error(repr(e))
         return -1
 
     if config['ssl']:
