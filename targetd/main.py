@@ -20,14 +20,18 @@
 import os
 import setproctitle
 import json
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+try:
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+except ImportError:
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 import yaml
 import itertools
 import socket
+import base64
 import ssl
 import traceback
 import logging as log
-from utils import TargetdError
+from targetd.utils import TargetdError
 import stat
 
 default_config_path = "/etc/target/targetd.yaml"
@@ -221,8 +225,8 @@ def load_config(config_path):
 
 def update_mapping():
     # wait until now so submodules can import 'main' safely
-    import block
-    import fs
+    import targetd.block as block
+    import targetd.fs as fs
 
     try:
         mapping.update(block.initialize(config))

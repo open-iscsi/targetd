@@ -18,8 +18,8 @@
 
 import os
 import time
-from nfs import Nfs, Export
-from utils import invoke, TargetdError
+from targetd.nfs import Nfs, Export
+from targetd.utils import invoke, TargetdError
 
 
 # Notes:

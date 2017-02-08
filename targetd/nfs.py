@@ -16,7 +16,7 @@ import hashlib
 import os
 import os.path
 import shlex
-from utils import invoke
+from targetd.utils import invoke
 
 
 def md5(t):
