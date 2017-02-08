@@ -47,7 +47,7 @@ pool = 'vg-targetd'
 
 
 def jsonrequest(method, params=None):
-    print "+"*20, method
+    print("%s %s" % ("+"*20, method))
     global id_num
     data = json.dumps(
         dict(id=id_num, method=method, params=params, jsonrpc="2.0"))
@@ -65,7 +65,7 @@ def jsonrequest(method, params=None):
         request = urllib2.Request(url, data, headers)
         response_obj = urllib2.urlopen(request)
     except socket.error, e:
-        print "error, retrying with SSL"
+        print("error, retrying with SSL")
         url = "https://%s:%s%s" % (host, port, path)
         request = urllib2.Request(url, data, headers)
         response_obj = urllib2.urlopen(request)
@@ -76,24 +76,28 @@ def jsonrequest(method, params=None):
         if response['error']['code'] <= 0:
             raise Exception(response['error'].get('message', ''))
         else:
-            print "Invalid error code, should be negative!"
+            print("Invalid error code, should be negative!")
     else:
         return response.get('result')
 
 results = jsonrequest("export_list")
 for result in results:
-    print "export", result['initiator_wwn'], result['pool'],\
-        result['vol_name'], result['lun']
+    print("export %s %s %s %s" % (str(result['initiator_wwn']),
+                                   str(result['pool']),
+                                   str(result['vol_name']),
+                                   str(result['lun'])))
 
 #sys.exit(1)
 
 results = jsonrequest("pool_list")
 for result in results:
-    print "pool", result['name'], result['size'], result['free_size']
+    print("pool %s %s %s" %
+        (str(result['name']), str(result['size']), str(result['free_size'])))
 
 results = jsonrequest("vol_list", dict(pool=pool))
 for result in results:
-    print "vol", result['name'], result['size'], result['uuid']
+    print("vol %s %s %s" %
+          (str(result['name']), str(result['size']), str(result['uuid'])))
 
 #sys.exit(1)
 
@@ -110,14 +114,17 @@ try:
                              lun=5,
                              initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
-            print "waiting"
+            print("waiting")
             time.sleep(5)
             results = jsonrequest("export_list")
             for result in results:
-                print "export", result['initiator_wwn'], result['pool'], \
-                    result['vol_name'], result['lun'], result['vol_uuid']
+                print("export %s %s %s %s %s" %
+                      (str(result['initiator_wwn']),
+                       str(result['pool']),
+                       str(result['vol_name']),
+                       str(result['lun']), str(result['vol_uuid'])))
             time.sleep(5)
-            print "go!"
+            print("go!")
 
         finally:
             jsonrequest("export_destroy",
@@ -129,4 +136,4 @@ try:
 
 finally:
     jsonrequest("vol_destroy", dict(pool=pool, name="test2"))
-    print "done"
+    print("done")
