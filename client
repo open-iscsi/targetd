@@ -64,7 +64,7 @@ def jsonrequest(method, params=None):
     try:
         request = urllib2.Request(url, data, headers)
         response_obj = urllib2.urlopen(request)
-    except socket.error, e:
+    except socket.error as e:
         print("error, retrying with SSL")
         url = "https://%s:%s%s" % (host, port, path)
         request = urllib2.Request(url, data, headers)

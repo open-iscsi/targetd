@@ -71,7 +71,7 @@ class TargetHandler(BaseHTTPRequestHandler):
         try:
             auth64 = self.headers.getheader("Authorization")[6:]
             in_user, in_pass = auth64.decode('base64').split(":")
-        except:
+        except Exception as e:
             self.send_error(400)
             return
 
@@ -123,10 +123,10 @@ class TargetHandler(BaseHTTPRequestHandler):
                     "invalid method arguments(s)")
                 log.debug(traceback.format_exc())
                 raise
-            except TargetdError, td:
+            except TargetdError as td:
                 error = (td.error, str(td))
                 raise
-            except Exception, e:
+            except Exception as e:
                 error = (-1, "%s: %s" % (type(e).__name__, e))
                 log.debug(traceback.format_exc())
                 raise
