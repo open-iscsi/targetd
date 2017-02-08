@@ -69,8 +69,9 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         # get basic auth string, strip "Basic "
         try:
-            auth64 = self.headers.getheader("Authorization")[6:]
-            in_user, in_pass = auth64.decode('base64').split(":")
+            auth_bytes = self.headers.get("Authorization")[6:].encode('utf-8')
+            auth_str = base64.b64decode(auth_bytes).decode('utf-8')
+            in_user, in_pass = auth_str.split(":")
         except Exception as e:
             self.send_error(400)
             return
@@ -86,8 +87,8 @@ class TargetHandler(BaseHTTPRequestHandler):
         try:
             error = (-1, "jsonrpc error")
             try:
-                content_len = int(self.headers.getheader('content-length'))
-                req = json.loads(self.rfile.read(content_len))
+                content_len = int(self.headers.get('content-length'))
+                req = json.loads(self.rfile.read(content_len).decode('utf-8'))
             except ValueError:
                 # see http://www.jsonrpc.org/specification for errcodes
                 error = (-32700, "parse error")
@@ -138,7 +139,7 @@ class TargetHandler(BaseHTTPRequestHandler):
             rpcdata = json.dumps(
                 dict(error=dict(code=error[0], message=error[1]), id=id_num))
         finally:
-            self.wfile.write(rpcdata)
+            self.wfile.write(rpcdata.encode('utf-8'))
 
 
 class HTTPService(HTTPServer, object):
