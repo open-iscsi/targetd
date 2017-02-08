@@ -240,7 +240,7 @@ def _fs_hash():
 
 
 def fs(req):
-    return _fs_hash().values()
+    return list(_fs_hash().values())
 
 
 def ss(req, fs_uuid, fs_cache=None):
