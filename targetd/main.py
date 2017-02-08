@@ -172,14 +172,14 @@ class TLSHTTPService(HTTPService):
             ss = os.stat(f)
             if stat.S_ISREG(ss.st_mode):
                 if ss.st_uid == 0:
-                    if ss.st_mode & 0077 == 0 and \
+                    if ss.st_mode & 0o077 == 0 and \
                             bool(ss.st_mode & stat.S_IRUSR):
                         rc = True
                     else:
                         log.error("SSL file: '%s' incorrect permissions (%s), "
                                   "ensure file is _not_ readable or writeable "
                                   "by anyone other than owner, and that owner "
-                                  "can read." % (f, oct(ss.st_mode & 0777)))
+                                  "can read." % (f, oct(ss.st_mode & 0o777)))
                 else:
                     log.error("SSL file: '%s' not owned by root." % f)
             else:
