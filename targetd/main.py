@@ -203,7 +203,7 @@ def load_config(config_path):
         if config is None:
             config = {}
 
-    for key, value in default_config.iteritems():
+    for key, value in iter(default_config.items()):
         if key not in config:
             config[key] = value
 
