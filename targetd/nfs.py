@@ -19,23 +19,6 @@ import shlex
 from targetd.utils import invoke
 
 
-def md5(t):
-    h = hashlib.md5()
-    h.update(t)
-    return h.hexdigest()
-
-
-def make_line_array(out):
-    """
-    Split the text out as an array of text strings
-    """
-    rc = []
-    for line in out.split('\n'):
-        if len(line) > 1:
-            rc.append(line)
-    return rc
-
-
 class Export(object):
 
     SECURE = 0x00000001
