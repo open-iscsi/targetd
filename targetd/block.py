@@ -68,7 +68,7 @@ def vgopen(pool_name):
         lib_calls = 0
 
 pools = []
-target_name = None
+target_name = ""
 lib_calls = 0
 
 
@@ -95,7 +95,8 @@ def initialize(config_dict):
         # vg and a thinpool from that vg: BAD
         #
         if thin_pool and vg_name in pools:
-            raise TargetdError(-1, "VG pool and thin pool from same VG not supported")
+            raise TargetdError(
+                -1, "VG pool and thin pool from same VG not supported")
 
     return dict(
         vol_list=volumes,
@@ -304,7 +305,7 @@ def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user,
 def block_pools(req):
     results = []
 
-    def thinp_get_free_bytes(thinp):
+    def thinp_get_free_bytes(thinp_lib_obj):
         # we can only get used percent, so calculate an approx. free bytes
         # These return an integer in of millionths of a percent, so
         # add them and get a decimalization by dividing by another 100
@@ -313,9 +314,9 @@ def block_pools(req):
         # on lvm2app library version can be returned as -1 or 2**64-1
 
         unsigned_val = (2 ** 64 - 1)
-        free_bytes = thinp.getSize()
-        dp = thinp.getProperty("data_percent")[0]
-        mp = thinp.getProperty("metadata_percent")[0]
+        free_bytes = thinp_lib_obj.getSize()
+        dp = thinp_lib_obj.getProperty("data_percent")[0]
+        mp = thinp_lib_obj.getProperty("metadata_percent")[0]
 
         if dp != -1 and dp != unsigned_val and mp != -1 and mp != unsigned_val:
             used_pct = float(dp + mp) / 100000000
@@ -372,8 +373,8 @@ def initiator_list(req, standalone_only=False):
     Raises:
         N/A
     """
-    def _condition(node_acl, standalone_only):
-        if standalone_only and node_acl.tag is not None:
+    def _condition(node_acl, _standalone_only):
+        if _standalone_only and node_acl.tag is not None:
             return False
         else:
             return True

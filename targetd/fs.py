@@ -61,7 +61,7 @@ def initialize(config_dict):
             create_sub_volume(os.path.join(pool, ss_path))
         except TargetdError, e:
             log.error('Unable to create required subvolumes')
-            log.error(e.msg)
+            log.error(e.message)
             raise
 
     return dict(
@@ -136,11 +136,11 @@ def fs_create(req, pool_name, name, size_bytes):
 
 
 def fs_snapshot(req, fs_uuid, dest_ss_name):
-    fs = _get_fs_by_uuid(req, fs_uuid)
+    fs_ht = _get_fs_by_uuid(req, fs_uuid)
 
-    if fs:
-        source_path = os.path.join(fs['pool'], fs_path, fs['name'])
-        dest_base = os.path.join(fs['pool'], ss_path, fs['name'])
+    if fs_ht:
+        source_path = os.path.join(fs_ht['pool'], fs_path, fs_ht['name'])
+        dest_base = os.path.join(fs_ht['pool'], ss_path, fs_ht['name'])
         dest_path = os.path.join(dest_base, dest_ss_name)
 
         create_sub_volume(dest_base)
@@ -152,9 +152,9 @@ def fs_snapshot(req, fs_uuid, dest_ss_name):
 
 
 def fs_snapshot_delete(req, fs_uuid, ss_uuid):
-    fs_hash = _get_fs_by_uuid(req, fs_uuid)
-    snapshot = _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs_hash)
-    path = os.path.join(fs_hash['pool'], ss_path, fs_hash['name'],
+    fs_ht = _get_fs_by_uuid(req, fs_uuid)
+    snapshot = _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs_ht)
+    path = os.path.join(fs_ht['pool'], ss_path, fs_ht['name'],
                         snapshot['name'])
     fs_subvolume_delete(path)
 
@@ -168,9 +168,9 @@ def fs_destroy(req, uuid):
     # delete.  The API requires a FS to list its RO copies, we may want to
     # reconsider this decision.
 
-    fs = _get_fs_by_uuid(req, uuid)
+    fs_ht = _get_fs_by_uuid(req, uuid)
 
-    base_snapshot_dir = os.path.join(fs['pool'], ss_path, fs['name'])
+    base_snapshot_dir = os.path.join(fs_ht['pool'], ss_path, fs_ht['name'])
 
     snapshots = ss(req, uuid)
     for s in snapshots:
@@ -179,7 +179,7 @@ def fs_destroy(req, uuid):
     if os.path.exists(base_snapshot_dir):
         fs_subvolume_delete(base_snapshot_dir)
 
-    fs_subvolume_delete(os.path.join(fs['pool'], fs_path, fs['name']))
+    fs_subvolume_delete(os.path.join(fs_ht['pool'], fs_path, fs_ht['name']))
 
 
 def fs_pools(req):
@@ -273,19 +273,19 @@ def _get_fs_by_uuid(req, fs_uuid):
             return f
 
 
-def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs=None):
-    if fs is None:
-        fs = _get_fs_by_uuid(req, fs_uuid)
+def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs_ht=None):
+    if fs_ht is None:
+        fs_ht = _get_fs_by_uuid(req, fs_uuid)
 
-    for s in ss(req, fs_uuid, fs):
+    for s in ss(req, fs_uuid, fs_ht):
         if s['uuid'] == ss_uuid:
             return s
 
 
 def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
-    fs = _get_fs_by_uuid(req, fs_uuid)
+    fs_ht = _get_fs_by_uuid(req, fs_uuid)
 
-    if not fs:
+    if not fs_ht:
         raise TargetdError(-104, "fs_uuid not found")
 
     if snapshot_id:
@@ -293,11 +293,12 @@ def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
         if not snapshot:
             raise TargetdError(-112, "snapshot not found")
 
-        source = os.path.join(fs['pool'], ss_path, fs['name'], snapshot['name'])
-        dest = os.path.join(fs['pool'], fs_path, dest_fs_name)
+        source = os.path.join(fs_ht['pool'], ss_path, fs_ht['name'],
+                              snapshot['name'])
+        dest = os.path.join(fs_ht['pool'], fs_path, dest_fs_name)
     else:
-        source = os.path.join(fs['pool'], fs_path, fs['name'])
-        dest = os.path.join(fs['pool'], fs_path, dest_fs_name)
+        source = os.path.join(fs_ht['pool'], fs_path, fs_ht['name'])
+        dest = os.path.join(fs_ht['pool'], fs_path, dest_fs_name)
 
     if os.path.exists(dest):
         raise TargetdError(-51, "Filesystem with that name exists")
@@ -344,5 +345,5 @@ def nfs_export_remove(req, host, path):
             found = True
 
     if not found:
-        raise TargetdError(-400, "NFS export to remove not found %s:%s",
-                       (host, path))
+        raise TargetdError(
+            -400, "NFS export to remove not found %s:%s", (host, path))

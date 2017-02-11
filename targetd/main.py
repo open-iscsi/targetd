@@ -28,6 +28,7 @@ import ssl
 import traceback
 import logging as log
 from utils import TargetdError
+import stat
 
 default_config_path = "/etc/target/targetd.yaml"
 
@@ -60,6 +61,7 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         rpcdata = ""
         error = None
+        id_num = 0
 
         # get basic auth string, strip "Basic "
         try:
@@ -79,7 +81,6 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         try:
             error = (-1, "jsonrpc error")
-            self.id = None
             try:
                 content_len = int(self.headers.getheader('content-length'))
                 req = json.loads(self.rfile.read(content_len))
@@ -97,7 +98,7 @@ class TargetHandler(BaseHTTPRequestHandler):
                 if version != "2.0":
                     raise ValueError
                 method = req['method']
-                self.id = int(req['id'])
+                id_num = int(req['id'])
                 params = req.get('params', None)
             except (KeyError, ValueError):
                 error = (-32600, "not a valid jsonrpc-2.0 request")
@@ -114,8 +115,8 @@ class TargetHandler(BaseHTTPRequestHandler):
                 raise
             except TypeError:
                 error = (
-                    TargetdError.INVALID_PARMETER,
-                    "invalid method parameter(s)")
+                    TargetdError.INVALID_ARGUMENT,
+                    "invalid method arguments(s)")
                 log.debug(traceback.format_exc())
                 raise
             except TargetdError, td:
@@ -126,12 +127,12 @@ class TargetHandler(BaseHTTPRequestHandler):
                 log.debug(traceback.format_exc())
                 raise
 
-            rpcdata = json.dumps(dict(result=result, id=self.id))
+            rpcdata = json.dumps(dict(result=result, id=id_num))
 
         except:
             log.debug('Error=%s, msg=%s' % error)
             rpcdata = json.dumps(
-                dict(error=dict(code=error[0], message=error[1]), id=self.id))
+                dict(error=dict(code=error[0], message=error[1]), id=id_num))
         finally:
             self.wfile.write(rpcdata)
 
@@ -157,6 +158,35 @@ class TLSHTTPService(HTTPService):
             ciphers="HIGH:-aNULL:-eNULL:-PSK",
             suppress_ragged_eofs=True)
         return self.RequestHandlerClass(sockssl, addr, self)
+
+    @staticmethod
+    def _verify_ssl_file(f):
+        rc = False
+        # Check the SSL files
+        if os.path.exists(f):
+            ss = os.stat(f)
+            if stat.S_ISREG(ss.st_mode):
+                if ss.st_uid == 0:
+                    if ss.st_mode & 0077 == 0 and \
+                            bool(ss.st_mode & stat.S_IRUSR):
+                        rc = True
+                    else:
+                        log.error("SSL file: '%s' incorrect permissions (%s), "
+                                  "ensure file is _not_ readable or writeable "
+                                  "by anyone other than owner, and that owner "
+                                  "can read." % (f, oct(ss.st_mode & 0777)))
+                else:
+                    log.error("SSL file: '%s' not owned by root." % f)
+            else:
+                log.error("SSL file: '%s' is not a regular file." % f)
+        else:
+            log.error("SSL file: '%s' does not exist." % f)
+        return rc
+
+    @staticmethod
+    def verify_certificates():
+        return (TLSHTTPService._verify_ssl_file(config["ssl_key"]) and
+                TLSHTTPService._verify_ssl_file(config["ssl_cert"]))
 
 
 def load_config(config_path):
@@ -225,11 +255,17 @@ def main():
 
     try:
         update_mapping()
-    except:
+    except Exception as e:
+        log.error(e.message)
         return -1
 
     if config['ssl']:
         server_class = TLSHTTPService
+
+        # Make sure certificates are good to go!
+        if not TLSHTTPService.verify_certificates():
+            return -1
+
         note = "(TLS yes)"
     else:
         server_class = HTTPService
