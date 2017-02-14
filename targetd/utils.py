@@ -67,4 +67,4 @@ def invoke(cmd, raise_exception=True):
                                      (cmd_str, str(c.returncode),
                                       str(out[0] + out[1])))
 
-    return c.returncode, out[0], out[1]
+    return c.returncode, out[0].decode('utf-8'), out[1].decode('utf-8')

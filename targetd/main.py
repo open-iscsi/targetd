@@ -20,14 +20,18 @@
 import os
 import setproctitle
 import json
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+try:
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+except ImportError:
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 import yaml
 import itertools
 import socket
+import base64
 import ssl
 import traceback
 import logging as log
-from utils import TargetdError
+from targetd.utils import TargetdError
 import stat
 
 default_config_path = "/etc/target/targetd.yaml"
@@ -65,9 +69,11 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         # get basic auth string, strip "Basic "
         try:
-            auth64 = self.headers.getheader("Authorization")[6:]
-            in_user, in_pass = auth64.decode('base64').split(":")
-        except:
+            auth_bytes = self.headers.get("Authorization")[6:].encode('utf-8')
+            auth_str = base64.b64decode(auth_bytes).decode('utf-8')
+            in_user, in_pass = auth_str.split(":")
+        except Exception as e:
+            log.error(traceback.format_exc())
             self.send_error(400)
             return
 
@@ -82,8 +88,8 @@ class TargetHandler(BaseHTTPRequestHandler):
         try:
             error = (-1, "jsonrpc error")
             try:
-                content_len = int(self.headers.getheader('content-length'))
-                req = json.loads(self.rfile.read(content_len))
+                content_len = int(self.headers.get('content-length'))
+                req = json.loads(self.rfile.read(content_len).decode('utf-8'))
             except ValueError:
                 # see http://www.jsonrpc.org/specification for errcodes
                 error = (-32700, "parse error")
@@ -119,22 +125,22 @@ class TargetHandler(BaseHTTPRequestHandler):
                     "invalid method arguments(s)")
                 log.debug(traceback.format_exc())
                 raise
-            except TargetdError, td:
+            except TargetdError as td:
                 error = (td.error, str(td))
                 raise
-            except Exception, e:
+            except Exception as e:
                 error = (-1, "%s: %s" % (type(e).__name__, e))
                 log.debug(traceback.format_exc())
                 raise
 
             rpcdata = json.dumps(dict(result=result, id=id_num))
-
         except:
-            log.debug('Error=%s, msg=%s' % error)
+            log.debug(traceback.format_exc())
+            log.debug('Error=%s, msg=%s' % (error[0], error[1]))
             rpcdata = json.dumps(
                 dict(error=dict(code=error[0], message=error[1]), id=id_num))
         finally:
-            self.wfile.write(rpcdata)
+            self.wfile.write(rpcdata.encode('utf-8'))
 
 
 class HTTPService(HTTPServer, object):
@@ -167,14 +173,14 @@ class TLSHTTPService(HTTPService):
             ss = os.stat(f)
             if stat.S_ISREG(ss.st_mode):
                 if ss.st_uid == 0:
-                    if ss.st_mode & 0077 == 0 and \
+                    if ss.st_mode & 0o077 == 0 and \
                             bool(ss.st_mode & stat.S_IRUSR):
                         rc = True
                     else:
                         log.error("SSL file: '%s' incorrect permissions (%s), "
                                   "ensure file is _not_ readable or writeable "
                                   "by anyone other than owner, and that owner "
-                                  "can read." % (f, oct(ss.st_mode & 0777)))
+                                  "can read." % (f, oct(ss.st_mode & 0o777)))
                 else:
                     log.error("SSL file: '%s' not owned by root." % f)
             else:
@@ -197,7 +203,7 @@ def load_config(config_path):
         if config is None:
             config = {}
 
-    for key, value in default_config.iteritems():
+    for key, value in iter(default_config.items()):
         if key not in config:
             config[key] = value
 
@@ -221,8 +227,8 @@ def load_config(config_path):
 
 def update_mapping():
     # wait until now so submodules can import 'main' safely
-    import block
-    import fs
+    import targetd.block as block
+    import targetd.fs as fs
 
     try:
         mapping.update(block.initialize(config))
@@ -256,7 +262,7 @@ def main():
     try:
         update_mapping()
     except Exception as e:
-        log.error(e.message)
+        log.error(repr(e))
         return -1
 
     if config['ssl']:

@@ -1,2 +1,2 @@
 
-from main import main
+from targetd.main import main

@@ -20,8 +20,8 @@ from rtslib_fb import (
     Target, TPG, NodeACL, FabricModule, BlockStorageObject, RTSRoot,
     NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS, NodeACLGroup)
 import lvm
-from main import TargetdError
-from utils import ignored, name_check
+from targetd.main import TargetdError
+from targetd.utils import ignored, name_check
 
 
 def get_vg_lv(pool_name):
