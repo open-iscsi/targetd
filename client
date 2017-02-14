@@ -43,7 +43,7 @@ port = 18700
 path = '/targetrpc'
 id_num = 1
 ssl = False
-pool = 'vg-targetd'
+pool = 'vg-targetd/thin_pool'
 
 
 def jsonrequest(method, params=None):
