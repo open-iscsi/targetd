@@ -45,7 +45,7 @@ an example:
     ssl: false
     target_name: iqn.2003-01.org.example.mach1:1234
 
-    block_pools: [vg-targetd, vg-targetd-too]
+    block_pools: [vg-targetd/thin_pool, vg-targetd-too/thin_pool]
     fs_pools: [/mnt/btrfs]
 
 targetd defaults to using the "vg-targetd" volume group, and username 'admin'.
