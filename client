@@ -31,10 +31,17 @@
 #
 
 
-import urllib2
 import json
 import time
 import socket
+import base64
+
+try:
+    from urllib.request import (Request,
+                                urlopen)
+except ImportError:
+    from urllib2 import (Request,
+                         urlopen)
 
 user = "admin"
 password = "targetd"
@@ -43,7 +50,7 @@ port = 18700
 path = '/targetrpc'
 id_num = 1
 ssl = False
-pool = 'vg-targetd'
+pool = 'vg-targetd/thin_pool'
 
 
 def jsonrequest(method, params=None):
@@ -52,7 +59,8 @@ def jsonrequest(method, params=None):
     data = json.dumps(
         dict(id=id_num, method=method, params=params, jsonrpc="2.0"))
     id_num += 1
-    auth = ('%s:%s' % (user, password)).encode('base64')[:-1]
+    username_pass = '%s:%s' % (user, password)
+    auth = base64.b64encode(username_pass.encode('utf-8')).decode('utf-8')
     headers = {'Content-Type': 'application/json',
                'Authorization': 'Basic %s' % (auth,)}
     #print('Sending JSON data: %s' % data)
@@ -62,14 +70,14 @@ def jsonrequest(method, params=None):
         scheme = 'http'
     url = "%s://%s:%s%s" % (scheme, host, port, path)
     try:
-        request = urllib2.Request(url, data, headers)
-        response_obj = urllib2.urlopen(request)
+        request = Request(url, data.encode('utf-8'), headers)
+        response_obj = urlopen(request)
     except socket.error as e:
         print("error, retrying with SSL")
         url = "https://%s:%s%s" % (host, port, path)
-        request = urllib2.Request(url, data, headers)
-        response_obj = urllib2.urlopen(request)
-    response_data = response_obj.read()
+        request = Request(url, data, headers)
+        response_obj = urlopen(request)
+    response_data = response_obj.read().decode('utf-8')
     #print('Got response: %s' % response_data)
     response = json.loads(response_data)
     if response.get('error') is not None:
