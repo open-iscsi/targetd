@@ -48,9 +48,14 @@ an example:
     block_pools: [vg-targetd/thin_pool, vg-targetd-too/thin_pool]
     fs_pools: [/mnt/btrfs]
 
-targetd defaults to using the "vg-targetd" volume group, and username 'admin'.
-The admin password does not have a default -- each installation must set it.
+targetd defaults to using the "vg-targetd/thin_pool" volume group and thin
+pool logical volume, and username 'admin'. The admin password does not have a
+default -- each installation must set it.
 
-Then, run `sudo ./targetd.py`.
+Then, in the root of the source directory, do the following as root:
+```bash
+# export PYTHONPATH=`pwd`
+# ./scripts/targetd`
+```
 
 client.py is a basic testing script, to get started making API calls.
