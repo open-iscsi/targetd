@@ -30,7 +30,7 @@
 # Test client to exercise targetd.
 #
 
-
+import sys
 import json
 import time
 import socket
@@ -80,6 +80,8 @@ def jsonrequest(method, params=None):
     response_data = response_obj.read().decode('utf-8')
     #print('Got response: %s' % response_data)
     response = json.loads(response_data)
+    #Ensure we have version string
+    assert response.get('jsonrpc') == "2.0"
     if response.get('error') is not None:
         if response['error']['code'] <= 0:
             raise Exception(response['error'].get('message', ''))

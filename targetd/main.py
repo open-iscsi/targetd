@@ -133,12 +133,13 @@ class TargetHandler(BaseHTTPRequestHandler):
                 log.debug(traceback.format_exc())
                 raise
 
-            rpcdata = json.dumps(dict(result=result, id=id_num))
+            rpcdata = json.dumps(dict(result=result, id=id_num, jsonrpc="2.0"))
         except:
             log.debug(traceback.format_exc())
             log.debug('Error=%s, msg=%s' % (error[0], error[1]))
             rpcdata = json.dumps(
-                dict(error=dict(code=error[0], message=error[1]), id=id_num))
+                dict(error=dict(code=error[0], message=error[1]),
+                     id=id_num, jsonrpc="2.0"))
         finally:
             self.wfile.write(rpcdata.encode('utf-8'))
 
