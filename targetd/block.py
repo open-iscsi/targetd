@@ -233,7 +233,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
 
     # only add mapped lun if it doesn't exist
     for tmp_mlun in tpg_lun.mapped_luns:
-        if tmp_mlun.mapped_lun == lun:
+        if tmp_mlun.mapped_lun == lun and tmp_mlun.parent_nodeacl == na:
             break
     else:
         MappedLUN(na, lun, tpg_lun)
