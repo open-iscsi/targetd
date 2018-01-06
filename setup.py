@@ -9,7 +9,7 @@ setup(
     license='GPLv3',
     maintainer='Andy Grover',
     maintainer_email='agrover@redhat.com',
-    url='http://github.com/agrover/targetd',
+    url='http://github.com/open-iscsi/targetd',
     packages=['targetd'],
     scripts=['scripts/targetd']
 )
