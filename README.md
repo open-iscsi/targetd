@@ -1,3 +1,16 @@
+# Note: Project is in maintenance mode
+
+```
+targetd utilizes lvm2app library which has been deprecated [1]
+and btrfs which has been deprecated [2].
+
+This project has been placed in maintenance mode and could be revived
+if those deprecated pieces are replaced/updated with something that is supported.
+
+[1] https://bugzilla.redhat.com/show_bug.cgi?id=1489590
+[2] https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/7.4_Release_Notes/chap-Red_Hat_Enterprise_Linux-7.4_Release_Notes-Deprecated_Functionality.html
+```
+
 ![targetd logo](https://fedorahosted.org/targetd/raw-attachment/wiki/Logo/targetd.png)
 
 Remote configuration of a LIO-based storage appliance
