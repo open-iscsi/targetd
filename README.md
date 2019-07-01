@@ -41,11 +41,14 @@ Getting Started
 ---------------
 targetd has these Python library dependencies:
 * [python-rtslib](https://github.com/agrover/rtslib-fb) 2.1.fb42+  (must be fb*)
-* [LVM2 with Python bindings(lvm2-python-libs)](https://sourceware.org/lvm2/) 2.02.99+
+* [libblockdev](https://github.com/storaged-project/libblockdev)
+* `python3-blockdev`
+* `libblockdev-lvm-dbus` and `lvm2-dbusd` (to use the DBus API **recommended**) **or** 
+* `libblockdev-lvm`  to use the lvm binary API
 * [python-setproctitle](https://github.com/dvarrazzo/py-setproctitle)
 * [PyYAML](http://pyyaml.org/)
 
-All of these are available in Fedora Rawhide.
+All of these are available in Fedora Rawhide and recent Ubuntu versions.
 
 ### Configuring targetd
 
@@ -60,7 +63,7 @@ an example:
 
     block_pools: [vg-targetd/thin_pool, vg-targetd-too/thin_pool]
     fs_pools: [/mnt/btrfs]
-
+    
 targetd defaults to using the "vg-targetd/thin_pool" volume group and thin
 pool logical volume, and username 'admin'. The admin password does not have a
 default -- each installation must set it.
