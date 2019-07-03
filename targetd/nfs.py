@@ -38,13 +38,13 @@ class Export(object):
     INSECURE = 0x00008000
     NO_ALL_SQUASH = 0x00010000
 
-    bool_option = dict(secure=SECURE, rw=RW, ro=RO, sync=SYNC, async=ASYNC,
-                       no_wdelay=NO_WDELAY, nohide=NOHIDE,
-                       cross_mnt=CROSS_MNT, no_subtree_check=NO_SUBTREE_CHECK,
-                       insecure_locks=INSECURE_LOCKS, root_squash=ROOT_SQUASH,
-                       all_squash=ALL_SQUASH, wdelay=WDELAY, hide=HIDE,
-                       insecure=INSECURE, no_root_squash=NO_ROOT_SQUASH,
-                       no_all_squash=NO_ALL_SQUASH)
+    bool_option = {"secure": SECURE, "rw": RW, "ro": RO, "sync": SYNC,
+                   "async": ASYNC, "no_wdelay": NO_WDELAY, "nohide": NOHIDE,
+                   "cross_mnt": CROSS_MNT, "no_subtree_check": NO_SUBTREE_CHECK,
+                   "insecure_locks": INSECURE_LOCKS, "root_squash": ROOT_SQUASH,
+                   "all_squash": ALL_SQUASH, "wdelay": WDELAY, "hide": HIDE,
+                   "insecure": INSECURE, "no_root_squash": NO_ROOT_SQUASH,
+                   "no_all_squash": NO_ALL_SQUASH}
 
     key_pair = dict(mountpoint=str, mp=str, fsid=None, refer=str, replicas=str,
                     anonuid=int, anongid=int, sec=str)
