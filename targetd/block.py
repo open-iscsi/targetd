@@ -19,9 +19,27 @@ import contextlib
 from rtslib_fb import (
     Target, TPG, NodeACL, FabricModule, BlockStorageObject, RTSRoot,
     NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS, NodeACLGroup)
-import lvm
+
+import gi
+gi.require_version("GLib", "2.0")
+gi.require_version("BlockDev", "2.0")
+
+from gi.repository import GLib
+from gi.repository import BlockDev as bd
+
 from targetd.main import TargetdError
 from targetd.utils import ignored, name_check
+
+REQUESTED_PLUGIN_NAMES = {"lvm"}
+
+requested_plugins = bd.plugin_specs_from_names(REQUESTED_PLUGIN_NAMES)
+
+bd.switch_init_checks(False)
+
+try:
+    succ_ = bd.init(requested_plugins)
+except GLib.GError as err:
+    raise RuntimeError("Failed to initialize libbd and its plugins (%s)" % REQUESTED_PLUGIN_NAMES)
 
 
 def get_vg_lv(pool_name):
@@ -47,29 +65,8 @@ def pool_check(pool_name):
         raise TargetdError(-110, "Invalid pool")
 
 
-@contextlib.contextmanager
-def vgopen(pool_name):
-    """
-    Helper function to check/close vg for us.
-    """
-    global lib_calls
-    pool_check(pool_name)
-    with contextlib.closing(lvm.vgOpen(pool_name, "w")) as vg:
-        yield vg
-
-    # Clean library periodically
-    lib_calls += 1
-    if lib_calls > 50:
-        try:
-            # May not be present if using older library
-            lvm.gc()
-        except AttributeError:
-            pass
-        lib_calls = 0
-
 pools = []
 target_name = ""
-lib_calls = 0
 
 
 #
@@ -86,8 +83,10 @@ def initialize(config_dict):
     # fail early if can't access any vg
     for pool in pools:
         vg_name, thin_pool = get_vg_lv(pool)
-        test_vg = lvm.vgOpen(vg_name)
-        test_vg.close()
+        test_vg = bd.lvm.vginfo(vg_name)
+
+        if test_vg is None:
+            raise TargetdError(TargetdError.VOLUME_GROUP_NOT_FOUND, "VG pool {} not found".format(vg_name))
 
         # Allowed multi-pool configs:
         # two thinpools from a single vg: ok
@@ -122,17 +121,17 @@ def initialize(config_dict):
 def volumes(req, pool):
     output = []
     vg_name, lv_pool = get_vg_lv(pool)
-    with vgopen(vg_name) as vg:
-        for lv in vg.listLVs():
-            attrib = lv.getAttr()
-            if not lv_pool:
-                if attrib[0] == '-':
-                    output.append(dict(name=lv.getName(), size=lv.getSize(),
-                                       uuid=lv.getUuid()))
-            else:
-                if attrib[0] == 'V' and lv.getProperty("pool_lv")[0] == lv_pool:
-                    output.append(dict(name=lv.getName(), size=lv.getSize(),
-                                       uuid=lv.getUuid()))
+    for lv in bd.lvm.lvs(vg_name):
+        attrib = lv.attr
+        if not lv_pool:
+            if attrib[0] == '-':
+                output.append(dict(name=lv.lv_name, size=lv.size,
+                                   uuid=lv.uuid))
+        else:
+            if attrib[0] == 'V' and lv.pool_lv == lv_pool:
+                output.append(dict(name=lv.lv_name, size=lv.size,
+                                   uuid=lv.uuid))
+
     return output
 
 
@@ -146,15 +145,14 @@ def create(req, pool, name, size):
             "Volume with that name exists")
 
     vg_name, lv_pool = get_vg_lv(pool)
-    with vgopen(vg_name) as vg:
-        if lv_pool:
-            # Fall back to non-thinp if needed
-            try:
-                vg.createLvThin(lv_pool, name, int(size))
-            except AttributeError:
-                vg.createLvLinear(name, int(size))
-        else:
-            vg.createLvLinear(name, int(size))
+    if lv_pool:
+        # Fall back to non-thinp if needed
+        try:
+            bd.lvm.thlvcreate(vg_name, lv_pool, name, int(size))
+        except AttributeError:
+            bd.lvm.lvcreate(vg_name, name, int(size), 'linear')
+    else:
+        bd.lvm.lvcreate(vg_name, name, int(size), 'linear')
 
 
 def destroy(req, pool, name):
@@ -171,8 +169,8 @@ def destroy(req, pool, name):
                                "Volume '%s' cannot be "
                                "removed while exported" % name)
 
-    with vgopen(get_vg_lv(pool)[0]) as vg:
-        vg.lvFromName(name).remove()
+    vg_name, lv_pool = get_vg_lv(pool)
+    bd.lvm.lvremove(vg_name, name)
 
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
@@ -187,14 +185,13 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
 
     vg_name, thin_pool = get_vg_lv(pool)
 
-    with vgopen(vg_name) as vg:
-        if not thin_pool:
-            raise RuntimeError("copy requires thin-provisioned volumes")
+    if not thin_pool:
+        raise RuntimeError("copy requires thin-provisioned volumes")
 
-        try:
-            vg.lvFromName(vol_orig).snapshot(vol_new)
-        except AttributeError:
-            raise NotImplementedError("liblvm lacks thin snap support")
+    try:
+        bd.lvm.thsnapshotcreate(vg_name, vol_orig, vol_new, thin_pool)
+    except AttributeError:
+        raise NotImplementedError("liblvm lacks thin snap support")
 
 
 def export_list(req):
@@ -210,12 +207,12 @@ def export_list(req):
         for mlun in na.mapped_luns:
             mlun_vg, mlun_name = \
                 mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
-            with vgopen(get_vg_lv(mlun_vg)[0]) as vg:
-                lv = vg.lvFromName(mlun_name)
-                exports.append(
-                    dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
-                         vol_name=mlun_name, pool=mlun_vg,
-                         vol_uuid=lv.getUuid(), vol_size=lv.getSize()))
+
+            lv = bd.lvm.lvinfo(mlun_vg, mlun_name)
+            exports.append(
+                dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
+                     vol_name=mlun_name, pool=mlun_vg,
+                     vol_uuid=lv.uuid, vol_size=lv.size))
     return exports
 
 
@@ -314,9 +311,9 @@ def block_pools(req):
         # on lvm2app library version can be returned as -1 or 2**64-1
 
         unsigned_val = (2 ** 64 - 1)
-        free_bytes = thinp_lib_obj.getSize()
-        dp = thinp_lib_obj.getProperty("data_percent")[0]
-        mp = thinp_lib_obj.getProperty("metadata_percent")[0]
+        free_bytes = thinp_lib_obj.size
+        dp = thinp_lib_obj.data_percent
+        mp = thinp_lib_obj.metadata_percent
 
         if dp != -1 and dp != unsigned_val and mp != -1 and mp != unsigned_val:
             used_pct = float(dp + mp) / 100000000
@@ -331,16 +328,15 @@ def block_pools(req):
     for pool in pools:
         vg_name, tp_name = get_vg_lv(pool)
         if not tp_name:
-            with vgopen(vg_name) as vg:
-                results.append(dict(name=pool, size=vg.getSize(),
-                                    free_size=vg.getFreeSize(), type='block',
-                                    uuid=vg.getUuid()))
+            vg = bd.lvm.vginfo(vg_name)
+            results.append(dict(name=pool, size=vg.size,
+                                free_size=vg.free, type='block',
+                                uuid=vg.uuid))
         else:
-            with vgopen(vg_name) as vg:
-                thinp = vg.lvFromName(tp_name)
-                results.append(dict(name=pool, size=thinp.getSize(),
-                                    free_size=thinp_get_free_bytes(thinp),
-                                    type='block', uuid=thinp.getUuid()))
+            thinp = bd.lvm.lvinfo(vg_name, tp_name)
+            results.append(dict(name=pool, size=thinp.size,
+                                free_size=thinp_get_free_bytes(thinp),
+                                type='block', uuid=thinp.uuid))
 
     return results
 
@@ -536,9 +532,7 @@ def _tpg_lun_of(tpg, pool_name, vol_name):
     """
     # get wwn of volume so LIO can export as vpd83 info
     vg_name, thin_pool = get_vg_lv(pool_name)
-
-    with vgopen(vg_name) as vg:
-        vol_serial = vg.lvFromName(vol_name).getUuid()
+    vol_serial = bd.lvm.lvinfo(vg_name, vol_name).uuid
 
     # only add new SO if it doesn't exist
     # so.name concats pool & vol names separated by ':'
