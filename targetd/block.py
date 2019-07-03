@@ -36,6 +36,15 @@ requested_plugins = bd.plugin_specs_from_names(REQUESTED_PLUGIN_NAMES)
 
 bd.switch_init_checks(False)
 
+# Handle changes in rtslib_fb for the constant expressing maximum LUN number
+# https://github.com/open-iscsi/rtslib-fb/commit/20a50d9967464add8d33f723f6849a197dbe0c52
+try:
+    MAX_LUN = LUN.MAX_LUN
+except AttributeError:
+    # Library no longer exposes iSCSI limitation which we're limited too.
+    MAX_LUN = 256
+
+
 try:
     succ_ = bd.init(requested_plugins)
 except GLib.GError as err:
@@ -586,13 +595,13 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
 
     if h_lun_id is None:
         # Find out next available host LUN ID
-        # Assuming max host LUN ID is LUN.MAX_LUN
-        free_h_lun_ids = set(range(LUN.MAX_LUN+1)) - \
+        # Assuming max host LUN ID is MAX_LUN
+        free_h_lun_ids = set(range(MAX_LUN+1)) - \
             set([int(x.mapped_lun) for x in tpg_lun.mapped_luns])
         if len(free_h_lun_ids) == 0:
             raise TargetdError(
                 TargetdError.NO_FREE_HOST_LUN_ID,
-                "All host LUN ID 0 ~ %d is in use" % LUN.MAX_LUN)
+                "All host LUN ID 0 ~ %d is in use" % MAX_LUN)
         else:
             h_lun_id = free_h_lun_ids.pop()
 
