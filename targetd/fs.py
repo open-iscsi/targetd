@@ -21,7 +21,6 @@ import time
 from targetd.nfs import Nfs, Export
 from targetd.utils import invoke, TargetdError
 
-
 # Notes:
 #
 # User can configure block pools (lvm volume groups) 1 to many or 0-many file
@@ -44,7 +43,6 @@ import logging as log
 fs_path = "targetd_fs"
 ss_path = "targetd_ss"
 fs_cmd = 'btrfs'
-
 
 pools = []
 
@@ -75,7 +73,7 @@ def initialize(config_dict):
         nfs_export_list=nfs_export_list,
         nfs_export_add=nfs_export_add,
         nfs_export_remove=nfs_export_remove,
-        )
+    )
 
 
 def create_sub_volume(p):
@@ -120,7 +118,8 @@ def pool_check(pool_name):
     been configured to use.
     """
     if pool_name not in pools:
-        raise TargetdError(TargetdError.INVALID_POOL, "Invalid filesystem pool")
+        raise TargetdError(TargetdError.INVALID_POOL,
+                           "Invalid filesystem pool")
 
 
 def fs_create(req, pool_name, name, size_bytes):
@@ -231,12 +230,13 @@ def _fs_hash():
 
                 if sub_vol[:len(prefix)] == prefix:
                     key = os.path.join(pool, sub_vol)
-                    fs_list[key] = dict(name=sub_vol[len(prefix):],
-                                        uuid=e[8],
-                                        total_space=total,
-                                        free_space=free,
-                                        pool=pool,
-                                        full_path=key)
+                    fs_list[key] = dict(
+                        name=sub_vol[len(prefix):],
+                        uuid=e[8],
+                        total_space=total,
+                        free_space=free,
+                        pool=pool,
+                        full_path=key)
 
     return fs_list
 
@@ -254,15 +254,15 @@ def ss(req, fs_uuid, fs_cache=None):
     full_path = os.path.join(fs_cache['pool'], ss_path, fs_cache['name'])
 
     if os.path.exists(full_path):
-        result, out, err = _invoke_retries([fs_cmd, 'subvolume', 'list', '-s',
-                                            full_path], False)
+        result, out, err = _invoke_retries(
+            [fs_cmd, 'subvolume', 'list', '-s', full_path], False)
 
         data = split_stdout(out)
         if len(data):
             for e in data:
                 ts = "%s %s" % (e[10], e[11])
-                time_epoch = int(time.mktime(
-                    time.strptime(ts, '%Y-%m-%d %H:%M:%S')))
+                time_epoch = int(
+                    time.mktime(time.strptime(ts, '%Y-%m-%d %H:%M:%S')))
                 st = dict(name=e[-1], uuid=e[-3], timestamp=time_epoch)
                 snapshots.append(st)
 
@@ -349,6 +349,6 @@ def nfs_export_remove(req, host, path):
             found = True
 
     if not found:
-        raise TargetdError(
-            TargetdError.NOT_FOUND_NFS_EXPORT,
-            "NFS export to remove not found %s:%s", (host, path))
+        raise TargetdError(TargetdError.NOT_FOUND_NFS_EXPORT,
+                           "NFS export to remove not found %s:%s",
+                           (host, path))

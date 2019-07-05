@@ -33,9 +33,8 @@ _NAME_REGEX = '^[a-zA-Z0-9_-]+$'
 
 def name_check(name):
     if not re.match(_NAME_REGEX, name):
-        raise TargetdError(
-            TargetdError.INVALID_ARGUMENT,
-            "Illegal name, should match: %s" % _NAME_REGEX)
+        raise TargetdError(TargetdError.INVALID_ARGUMENT,
+                           "Illegal name, should match: %s" % _NAME_REGEX)
 
 
 class TargetdError(Exception):
@@ -81,7 +80,7 @@ def invoke(cmd, raise_exception=True):
             cmd_str = str(cmd)
             raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
                                'Unexpected exit code "%s" %s, out= %s' %
-                                (cmd_str, str(c.returncode),
-                                 str(out[0] + out[1])))
+                               (cmd_str, str(c.returncode),
+                                str(out[0] + out[1])))
 
     return c.returncode, out[0].decode('utf-8'), out[1].decode('utf-8')

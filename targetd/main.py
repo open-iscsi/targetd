@@ -43,7 +43,7 @@ default_config = dict(
     log_level='info',
     # security: no default password
     target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" %
-                socket.gethostname(),
+    socket.gethostname(),
     ssl=False,
     ssl_cert="/etc/target/targetd_cert.pem",
     ssl_key="/etc/target/targetd_key.pem",
@@ -56,7 +56,6 @@ mapping = dict()
 
 
 class TargetHandler(BaseHTTPRequestHandler):
-
     def log_request(self, code='-', size='-'):
         # override base class - don't log good requests
         pass
@@ -120,9 +119,8 @@ class TargetHandler(BaseHTTPRequestHandler):
                 log.debug(traceback.format_exc())
                 raise
             except TypeError:
-                error = (
-                    TargetdError.INVALID_ARGUMENT,
-                    "invalid method arguments(s)")
+                error = (TargetdError.INVALID_ARGUMENT,
+                         "invalid method arguments(s)")
                 log.debug(traceback.format_exc())
                 raise
             except TargetdError as td:
@@ -138,8 +136,10 @@ class TargetHandler(BaseHTTPRequestHandler):
             log.debug(traceback.format_exc())
             log.debug('Error=%s, msg=%s' % (error[0], error[1]))
             rpcdata = json.dumps(
-                dict(error=dict(code=error[0], message=error[1]),
-                     id=id_num, jsonrpc="2.0"))
+                dict(
+                    error=dict(code=error[0], message=error[1]),
+                    id=id_num,
+                    jsonrpc="2.0"))
         finally:
             self.wfile.write(rpcdata.encode('utf-8'))
 
@@ -159,7 +159,8 @@ class TLSHTTPService(HTTPService):
 
     def finish_request(self, sock, addr):
         sockssl = ssl.wrap_socket(
-            sock, server_side=True,
+            sock,
+            server_side=True,
             keyfile=config["ssl_key"],
             certfile=config["ssl_cert"],
             ciphers="HIGH:-aNULL:-eNULL:-PSK",
@@ -192,8 +193,8 @@ class TLSHTTPService(HTTPService):
 
     @staticmethod
     def verify_certificates():
-        return (TLSHTTPService._verify_ssl_file(config["ssl_key"]) and
-                TLSHTTPService._verify_ssl_file(config["ssl_cert"]))
+        return (TLSHTTPService._verify_ssl_file(config["ssl_key"])
+                and TLSHTTPService._verify_ssl_file(config["ssl_cert"]))
 
 
 def load_config(config_path):

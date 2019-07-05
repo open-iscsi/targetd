@@ -11,5 +11,4 @@ setup(
     maintainer_email='agrover@redhat.com',
     url='http://github.com/open-iscsi/targetd',
     packages=['targetd'],
-    scripts=['scripts/targetd']
-)
+    scripts=['scripts/targetd'])
