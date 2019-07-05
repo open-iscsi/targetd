@@ -15,7 +15,6 @@
 #
 # Routines to export block devices over iscsi.
 
-import contextlib
 from rtslib_fb import (
     Target, TPG, NodeACL, FabricModule, BlockStorageObject, RTSRoot,
     NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS, NodeACLGroup)
