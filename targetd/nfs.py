@@ -38,16 +38,35 @@ class Export(object):
     INSECURE = 0x00008000
     NO_ALL_SQUASH = 0x00010000
 
-    bool_option = dict(secure=SECURE, rw=RW, ro=RO, sync=SYNC, async=ASYNC,
-                       no_wdelay=NO_WDELAY, nohide=NOHIDE,
-                       cross_mnt=CROSS_MNT, no_subtree_check=NO_SUBTREE_CHECK,
-                       insecure_locks=INSECURE_LOCKS, root_squash=ROOT_SQUASH,
-                       all_squash=ALL_SQUASH, wdelay=WDELAY, hide=HIDE,
-                       insecure=INSECURE, no_root_squash=NO_ROOT_SQUASH,
-                       no_all_squash=NO_ALL_SQUASH)
+    bool_option = {
+        "secure": SECURE,
+        "rw": RW,
+        "ro": RO,
+        "sync": SYNC,
+        "async": ASYNC,
+        "no_wdelay": NO_WDELAY,
+        "nohide": NOHIDE,
+        "cross_mnt": CROSS_MNT,
+        "no_subtree_check": NO_SUBTREE_CHECK,
+        "insecure_locks": INSECURE_LOCKS,
+        "root_squash": ROOT_SQUASH,
+        "all_squash": ALL_SQUASH,
+        "wdelay": WDELAY,
+        "hide": HIDE,
+        "insecure": INSECURE,
+        "no_root_squash": NO_ROOT_SQUASH,
+        "no_all_squash": NO_ALL_SQUASH
+    }
 
-    key_pair = dict(mountpoint=str, mp=str, fsid=None, refer=str, replicas=str,
-                    anonuid=int, anongid=int, sec=str)
+    key_pair = dict(
+        mountpoint=str,
+        mp=str,
+        fsid=None,
+        refer=str,
+        replicas=str,
+        anonuid=int,
+        anongid=int,
+        sec=str)
 
     export_regex = '([\/a-zA-Z0-9\.-_]+)[\s]+(.+)\((.+)\)'
     octal_nums_regex = r"""\\([0-7][0-7][0-7])"""
@@ -94,7 +113,7 @@ class Export(object):
             raise ValueError("Both WDELAY & NO_WDELAY set")
 
         if Export._bc(
-                ((Export.ROOT_SQUASH | Export.NO_ROOT_SQUASH) & options)) > 1:
+            ((Export.ROOT_SQUASH | Export.NO_ROOT_SQUASH) & options)) > 1:
             raise ValueError("Only one option of ROOT_SQUASH, NO_ROOT_SQUASH, "
                              "can be specified")
 
@@ -171,12 +190,11 @@ class Export(object):
                         else:
                             host = t
 
-                        rc.append(Export(host, path,
-                                         *Export.parse_opt(
-                                             Export._join(
-                                                 ',',
-                                                 global_options,
-                                                 options))))
+                        rc.append(
+                            Export(host, path,
+                                   *Export.parse_opt(
+                                       Export._join(',', global_options,
+                                                    options))))
                 else:
                     rc.append(Export('*', path))
 
@@ -204,8 +222,8 @@ class Export(object):
         pattern = re.compile(Export.export_regex)
 
         for m in re.finditer(pattern, export_text):
-            rc.append(Export(m.group(2), m.group(1),
-                             *Export.parse_opt(m.group(3))))
+            rc.append(
+                Export(m.group(2), m.group(1), *Export.parse_opt(m.group(3))))
         return rc
 
     @staticmethod
@@ -238,7 +256,7 @@ class Export(object):
 
     def __repr__(self):
         return "%s %s(%s)" % (Export._double_quote_space(self.path).ljust(50),
-                                self.host, self.options_string())
+                              self.host, self.options_string())
 
     def export_file_format(self):
         return "%s %s(%s)\n" % (Export._double_quote_space(self.path),
@@ -325,13 +343,13 @@ class Nfs(object):
             raise ValueError("Invalid option: %s" % err)
         else:
             raise RuntimeError('Unexpected exit code "%s" %s, out= %s' %
-                               (str(cmd), str(ec),
-                                str(out + ":" + err)))
+                               (str(cmd), str(ec), str(out + ":" + err)))
 
     @staticmethod
     def export_remove(export):
-        ec, out, err = invoke([Nfs.CMD, '-u', '%s:%s' %
-                                              (export.host, export.path)])
+        ec, out, err = invoke(
+            [Nfs.CMD, '-u',
+             '%s:%s' % (export.host, export.path)])
 
         if ec == 0:
             Nfs._save_exports()

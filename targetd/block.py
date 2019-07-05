@@ -15,10 +15,9 @@
 #
 # Routines to export block devices over iscsi.
 
-import contextlib
-from rtslib_fb import (
-    Target, TPG, NodeACL, FabricModule, BlockStorageObject, RTSRoot,
-    NetworkPortal, LUN, MappedLUN, RTSLibError, RTSLibNotInCFS, NodeACLGroup)
+from rtslib_fb import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
+                       RTSRoot, NetworkPortal, LUN, MappedLUN, RTSLibError,
+                       RTSLibNotInCFS, NodeACLGroup)
 
 import gi
 gi.require_version("GLib", "2.0")
@@ -36,10 +35,19 @@ requested_plugins = bd.plugin_specs_from_names(REQUESTED_PLUGIN_NAMES)
 
 bd.switch_init_checks(False)
 
+# Handle changes in rtslib_fb for the constant expressing maximum LUN number
+# https://github.com/open-iscsi/rtslib-fb/commit/20a50d9967464add8d33f723f6849a197dbe0c52
+try:
+    MAX_LUN = LUN.MAX_LUN
+except AttributeError:
+    # Library no longer exposes iSCSI limitation which we're limited too.
+    MAX_LUN = 256
+
 try:
     succ_ = bd.init(requested_plugins)
 except GLib.GError as err:
-    raise RuntimeError("Failed to initialize libbd and its plugins (%s)" % REQUESTED_PLUGIN_NAMES)
+    raise RuntimeError("Failed to initialize libbd and its plugins (%s)" %
+                       REQUESTED_PLUGIN_NAMES)
 
 
 def get_vg_lv(pool_name):
@@ -62,7 +70,7 @@ def pool_check(pool_name):
     pool_to_check = get_vg_lv(pool_name)[0]
 
     if pool_to_check not in [get_vg_lv(x)[0] for x in pools]:
-        raise TargetdError(-110, "Invalid pool")
+        raise TargetdError(TargetdError.INVALID_POOL, "Invalid pool")
 
 
 pools = []
@@ -82,11 +90,26 @@ def initialize(config_dict):
 
     # fail early if can't access any vg
     for pool in pools:
+        thinp = None
+        error = ""
         vg_name, thin_pool = get_vg_lv(pool)
-        test_vg = bd.lvm.vginfo(vg_name)
 
-        if test_vg is None:
-            raise TargetdError(TargetdError.VOLUME_GROUP_NOT_FOUND, "VG pool {} not found".format(vg_name))
+        if vg_name and thin_pool:
+            # We have VG name and LV name, check for it!
+            try:
+                thinp = bd.lvm.lvinfo(vg_name, thin_pool)
+            except gi.overrides.BlockDev.LVMError as lve:
+                error = str(lve).strip()
+
+            if thinp is None:
+                raise TargetdError(TargetdError.NOT_FOUND_VOLUME_GROUP,
+                                   "VG with thin LV {} not found, "
+                                   "nested error: {}".format(pool, error))
+        else:
+            test_vg = bd.lvm.vginfo(vg_name)
+            if test_vg is None:
+                raise TargetdError(TargetdError.NOT_FOUND_VOLUME_GROUP,
+                                   "VG pool {} not found".format(vg_name))
 
         # Allowed multi-pool configs:
         # two thinpools from a single vg: ok
@@ -95,7 +118,8 @@ def initialize(config_dict):
         #
         if thin_pool and vg_name in pools:
             raise TargetdError(
-                -1, "VG pool and thin pool from same VG not supported")
+                TargetdError.INVALID,
+                "VG pool and thin pool from same VG not supported")
 
     return dict(
         vol_list=volumes,
@@ -125,12 +149,12 @@ def volumes(req, pool):
         attrib = lv.attr
         if not lv_pool:
             if attrib[0] == '-':
-                output.append(dict(name=lv.lv_name, size=lv.size,
-                                   uuid=lv.uuid))
+                output.append(
+                    dict(name=lv.lv_name, size=lv.size, uuid=lv.uuid))
         else:
             if attrib[0] == 'V' and lv.pool_lv == lv_pool:
-                output.append(dict(name=lv.lv_name, size=lv.size,
-                                   uuid=lv.uuid))
+                output.append(
+                    dict(name=lv.lv_name, size=lv.size, uuid=lv.uuid))
 
     return output
 
@@ -140,9 +164,8 @@ def create(req, pool, name, size):
     # Check to ensure that we don't have a volume with this name already,
     # lvm will fail if we try to create a LV with a duplicate name
     if any(v['name'] == name for v in volumes(req, pool)):
-        raise TargetdError(
-            TargetdError.NAME_CONFLICT,
-            "Volume with that name exists")
+        raise TargetdError(TargetdError.NAME_CONFLICT,
+                           "Volume with that name exists")
 
     vg_name, lv_pool = get_vg_lv(pool)
     if lv_pool:
@@ -179,9 +202,8 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
     Since 0.6, requires thinp support.
     """
     if any(v['name'] == vol_new for v in volumes(req, pool)):
-        raise TargetdError(
-            TargetdError.NAME_CONFLICT,
-            "Volume with that name exists")
+        raise TargetdError(TargetdError.NAME_CONFLICT,
+                           "Volume with that name exists")
 
     vg_name, thin_pool = get_vg_lv(pool)
 
@@ -210,9 +232,13 @@ def export_list(req):
 
             lv = bd.lvm.lvinfo(mlun_vg, mlun_name)
             exports.append(
-                dict(initiator_wwn=na.node_wwn, lun=mlun.mapped_lun,
-                     vol_name=mlun_name, pool=mlun_vg,
-                     vol_uuid=lv.uuid, vol_size=lv.size))
+                dict(
+                    initiator_wwn=na.node_wwn,
+                    lun=mlun.mapped_lun,
+                    vol_name=mlun_name,
+                    pool=mlun_vg,
+                    vol_uuid=lv.uuid,
+                    vol_size=lv.size))
     return exports
 
 
@@ -262,8 +288,9 @@ def export_destroy(req, pool, vol, initiator_wwn):
                 so.delete()
             break
     else:
-        raise TargetdError(-151, "Volume '%s' not found in %s exports" %
-                                 (vol, initiator_wwn))
+        raise TargetdError(TargetdError.NOT_FOUND_VOLUME_EXPORT,
+                           "Volume '%s' not found in %s exports" %
+                           (vol, initiator_wwn))
 
     # Clean up tree if branch has no leaf
     if not any(na.mapped_luns):
@@ -310,7 +337,7 @@ def block_pools(req):
         # Note: It is possible for percentages to return a (-1) which depending
         # on lvm2app library version can be returned as -1 or 2**64-1
 
-        unsigned_val = (2 ** 64 - 1)
+        unsigned_val = (2**64 - 1)
         free_bytes = thinp_lib_obj.size
         dp = thinp_lib_obj.data_percent
         mp = thinp_lib_obj.metadata_percent
@@ -329,14 +356,22 @@ def block_pools(req):
         vg_name, tp_name = get_vg_lv(pool)
         if not tp_name:
             vg = bd.lvm.vginfo(vg_name)
-            results.append(dict(name=pool, size=vg.size,
-                                free_size=vg.free, type='block',
-                                uuid=vg.uuid))
+            results.append(
+                dict(
+                    name=pool,
+                    size=vg.size,
+                    free_size=vg.free,
+                    type='block',
+                    uuid=vg.uuid))
         else:
             thinp = bd.lvm.lvinfo(vg_name, tp_name)
-            results.append(dict(name=pool, size=thinp.size,
-                                free_size=thinp_get_free_bytes(thinp),
-                                type='block', uuid=thinp.uuid))
+            results.append(
+                dict(
+                    name=pool,
+                    size=thinp.size,
+                    free_size=thinp_get_free_bytes(thinp),
+                    type='block',
+                    uuid=thinp.uuid))
 
     return results
 
@@ -369,16 +404,18 @@ def initiator_list(req, standalone_only=False):
     Raises:
         N/A
     """
+
     def _condition(node_acl, _standalone_only):
         if _standalone_only and node_acl.tag is not None:
             return False
         else:
             return True
 
-    return list(
-        {'init_id': node_acl.node_wwn, 'init_type': 'iscsi'}
-        for node_acl in _get_iscsi_tpg().node_acls
-        if _condition(node_acl, standalone_only))
+    return list({
+        'init_id': node_acl.node_wwn,
+        'init_type': 'iscsi'
+    } for node_acl in _get_iscsi_tpg().node_acls
+                if _condition(node_acl, standalone_only))
 
 
 def access_group_list(req):
@@ -400,19 +437,16 @@ def access_group_list(req):
     Raises:
         N/A
     """
-    return list(
-        {
-            'name': node_acl_group.name,
-            'init_ids': list(node_acl_group.wwns),
-            'init_type': 'iscsi',
-        }
-        for node_acl_group in _get_iscsi_tpg().node_acl_groups)
+    return list({
+        'name': node_acl_group.name,
+        'init_ids': list(node_acl_group.wwns),
+        'init_type': 'iscsi',
+    } for node_acl_group in _get_iscsi_tpg().node_acl_groups)
 
 
 def access_group_create(req, ag_name, init_id, init_type):
     if init_type != 'iscsi':
-        raise TargetdError(
-            TargetdError.NO_SUPPORT, "Only support iscsi")
+        raise TargetdError(TargetdError.NO_SUPPORT, "Only support iscsi")
 
     name_check(ag_name)
 
@@ -424,14 +458,12 @@ def access_group_create(req, ag_name, init_id, init_type):
 
     for node_acl_group in tpg.node_acl_groups:
         if node_acl_group.name == ag_name:
-            raise TargetdError(
-                TargetdError.NAME_CONFLICT,
-                "Requested access group name is in use")
+            raise TargetdError(TargetdError.NAME_CONFLICT,
+                               "Requested access group name is in use")
 
     if init_id in list(i.node_wwn for i in tpg.node_acls):
-        raise TargetdError(
-            TargetdError.EXISTS_INITIATOR,
-            "Requested init_id is in use")
+        raise TargetdError(TargetdError.EXISTS_INITIATOR,
+                           "Requested init_id is in use")
 
     node_acl_group = NodeACLGroup(tpg, ag_name)
     node_acl_group.add_acl(init_id)
@@ -445,8 +477,7 @@ def access_group_destroy(req, ag_name):
 
 def access_group_init_add(req, ag_name, init_id, init_type):
     if init_type != 'iscsi':
-        raise TargetdError(
-            TargetdError.NO_SUPPORT, "Only support iscsi")
+        raise TargetdError(TargetdError.NO_SUPPORT, "Only support iscsi")
 
     tpg = _get_iscsi_tpg()
     # Pre-check:
@@ -464,9 +495,8 @@ def access_group_init_add(req, ag_name, init_id, init_type):
                 "Requested init_id is used by other access group")
     for node_acl in tpg.node_acls:
         if init_id == node_acl.node_wwn:
-            raise TargetdError(
-                TargetdError.EXISTS_INITIATOR,
-                "Requested init_id is in use")
+            raise TargetdError(TargetdError.EXISTS_INITIATOR,
+                               "Requested init_id is in use")
 
     NodeACLGroup(tpg, ag_name).add_acl(init_id)
     RTSRoot().save_to_file()
@@ -474,8 +504,7 @@ def access_group_init_add(req, ag_name, init_id, init_type):
 
 def access_group_init_del(req, ag_name, init_id, init_type):
     if init_type != 'iscsi':
-        raise TargetdError(
-            TargetdError.NO_SUPPORT, "Only support iscsi")
+        raise TargetdError(TargetdError.NO_SUPPORT, "Only support iscsi")
 
     tpg = _get_iscsi_tpg()
 
@@ -513,14 +542,12 @@ def access_group_map_list(req):
             # When user delete old volume and the created new one with
             # idential name. The mapping status will be kept.
             # Hence we don't expose volume UUID here.
-            results.append(
-                {
-                    'ag_name': node_acl_group.name,
-                    'h_lun_id': mapped_lun_group.mapped_lun,
-                    'pool_name': vg_name_2_pool_name_dict[vg_name],
-                    'vol_name': vol_name,
-                }
-            )
+            results.append({
+                'ag_name': node_acl_group.name,
+                'h_lun_id': mapped_lun_group.mapped_lun,
+                'pool_name': vg_name_2_pool_name_dict[vg_name],
+                'vol_name': vol_name,
+            })
 
     return results
 
@@ -581,18 +608,17 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
         # Non-existent access group means volume mapping status will not be
         # stored. This should be considered as an error instead of silently
         # returning.
-        raise TargetdError(
-            TargetdError.NOT_FOUND_ACCESS_GROUP, "Access group not found")
+        raise TargetdError(TargetdError.NOT_FOUND_ACCESS_GROUP,
+                           "Access group not found")
 
     if h_lun_id is None:
         # Find out next available host LUN ID
-        # Assuming max host LUN ID is LUN.MAX_LUN
-        free_h_lun_ids = set(range(LUN.MAX_LUN+1)) - \
+        # Assuming max host LUN ID is MAX_LUN
+        free_h_lun_ids = set(range(MAX_LUN+1)) - \
             set([int(x.mapped_lun) for x in tpg_lun.mapped_luns])
         if len(free_h_lun_ids) == 0:
-            raise TargetdError(
-                TargetdError.NO_FREE_HOST_LUN_ID,
-                "All host LUN ID 0 ~ %d is in use" % LUN.MAX_LUN)
+            raise TargetdError(TargetdError.NO_FREE_HOST_LUN_ID,
+                               "All host LUN ID 0 ~ %d is in use" % MAX_LUN)
         else:
             h_lun_id = free_h_lun_ids.pop()
 

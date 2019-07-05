@@ -21,7 +21,6 @@ import time
 from targetd.nfs import Nfs, Export
 from targetd.utils import invoke, TargetdError
 
-
 # Notes:
 #
 # User can configure block pools (lvm volume groups) 1 to many or 0-many file
@@ -44,7 +43,6 @@ import logging as log
 fs_path = "targetd_fs"
 ss_path = "targetd_ss"
 fs_cmd = 'btrfs'
-
 
 pools = []
 
@@ -75,7 +73,7 @@ def initialize(config_dict):
         nfs_export_list=nfs_export_list,
         nfs_export_add=nfs_export_add,
         nfs_export_remove=nfs_export_remove,
-        )
+    )
 
 
 def create_sub_volume(p):
@@ -120,7 +118,8 @@ def pool_check(pool_name):
     been configured to use.
     """
     if pool_name not in pools:
-        raise TargetdError(-110, "Invalid filesystem pool")
+        raise TargetdError(TargetdError.INVALID_POOL,
+                           "Invalid filesystem pool")
 
 
 def fs_create(req, pool_name, name, size_bytes):
@@ -131,7 +130,7 @@ def fs_create(req, pool_name, name, size_bytes):
     if not os.path.exists(full_path):
         invoke([fs_cmd, 'subvolume', 'create', full_path])
     else:
-        raise TargetdError(-53, 'FS already exists')
+        raise TargetdError(TargetdError.EXISTS_FS_NAME, 'FS already exists')
 
 
 def fs_snapshot(req, fs_uuid, dest_ss_name):
@@ -145,7 +144,8 @@ def fs_snapshot(req, fs_uuid, dest_ss_name):
         create_sub_volume(dest_base)
 
         if os.path.exists(dest_path):
-            raise TargetdError(-53, "Snapshot already exists with that name")
+            raise TargetdError(TargetdError.EXISTS_FS_NAME,
+                               "Snapshot already exists with that name")
 
         invoke([fs_cmd, 'subvolume', 'snapshot', '-r', source_path, dest_path])
 
@@ -203,10 +203,12 @@ def _invoke_retries(command, throw_exception):
             time.sleep(1)
             continue
         else:
-            raise TargetdError(-303, "Unexpected exit code %d" % result)
+            raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                               "Unexpected exit code %d" % result)
 
-    raise TargetdError(-303, "Unable to execute command after "
-                             "multiple retries %s" % (str(command)))
+    raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                       "Unable to execute command after "
+                       "multiple retries %s" % (str(command)))
 
 
 def _fs_hash():
@@ -228,12 +230,13 @@ def _fs_hash():
 
                 if sub_vol[:len(prefix)] == prefix:
                     key = os.path.join(pool, sub_vol)
-                    fs_list[key] = dict(name=sub_vol[len(prefix):],
-                                        uuid=e[8],
-                                        total_space=total,
-                                        free_space=free,
-                                        pool=pool,
-                                        full_path=key)
+                    fs_list[key] = dict(
+                        name=sub_vol[len(prefix):],
+                        uuid=e[8],
+                        total_space=total,
+                        free_space=free,
+                        pool=pool,
+                        full_path=key)
 
     return fs_list
 
@@ -251,15 +254,15 @@ def ss(req, fs_uuid, fs_cache=None):
     full_path = os.path.join(fs_cache['pool'], ss_path, fs_cache['name'])
 
     if os.path.exists(full_path):
-        result, out, err = _invoke_retries([fs_cmd, 'subvolume', 'list', '-s',
-                                            full_path], False)
+        result, out, err = _invoke_retries(
+            [fs_cmd, 'subvolume', 'list', '-s', full_path], False)
 
         data = split_stdout(out)
         if len(data):
             for e in data:
                 ts = "%s %s" % (e[10], e[11])
-                time_epoch = int(time.mktime(
-                    time.strptime(ts, '%Y-%m-%d %H:%M:%S')))
+                time_epoch = int(
+                    time.mktime(time.strptime(ts, '%Y-%m-%d %H:%M:%S')))
                 st = dict(name=e[-1], uuid=e[-3], timestamp=time_epoch)
                 snapshots.append(st)
 
@@ -285,12 +288,12 @@ def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
     fs_ht = _get_fs_by_uuid(req, fs_uuid)
 
     if not fs_ht:
-        raise TargetdError(-104, "fs_uuid not found")
+        raise TargetdError(TargetdError.NOT_FOUND_FS, "fs_uuid not found")
 
     if snapshot_id:
         snapshot = _get_ss_by_uuid(req, fs_uuid, snapshot_id)
         if not snapshot:
-            raise TargetdError(-112, "snapshot not found")
+            raise TargetdError(TargetdError.NOT_FOUND_SS, "snapshot not found")
 
         source = os.path.join(fs_ht['pool'], ss_path, fs_ht['name'],
                               snapshot['name'])
@@ -300,7 +303,8 @@ def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
         dest = os.path.join(fs_ht['pool'], fs_path, dest_fs_name)
 
     if os.path.exists(dest):
-        raise TargetdError(-51, "Filesystem with that name exists")
+        raise TargetdError(TargetdError.EXISTS_CLONE_NAME,
+                           "Filesystem with that name exists")
 
     invoke([fs_cmd, 'subvolume', 'snapshot', source, dest])
 
@@ -320,8 +324,9 @@ def nfs_export_list(req):
 def nfs_export_add(req, host, path, export_path, options):
 
     if export_path is not None:
-        raise TargetdError(-401, "separate export path not supported at "
-                                 "this time")
+        raise TargetdError(TargetdError.NFS_NO_SUPPORT,
+                           "separate export path not supported at "
+                           "this time")
     bit_opt = 0
     key_opt = {}
 
@@ -344,5 +349,6 @@ def nfs_export_remove(req, host, path):
             found = True
 
     if not found:
-        raise TargetdError(
-            -400, "NFS export to remove not found %s:%s", (host, path))
+        raise TargetdError(TargetdError.NOT_FOUND_NFS_EXPORT,
+                           "NFS export to remove not found %s:%s",
+                           (host, path))
