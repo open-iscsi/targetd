@@ -91,11 +91,26 @@ def initialize(config_dict):
 
     # fail early if can't access any vg
     for pool in pools:
+        thinp = None
+        error = ""
         vg_name, thin_pool = get_vg_lv(pool)
-        test_vg = bd.lvm.vginfo(vg_name)
 
-        if test_vg is None:
-            raise TargetdError(TargetdError.VOLUME_GROUP_NOT_FOUND, "VG pool {} not found".format(vg_name))
+        if vg_name and thin_pool:
+            # We have VG name and LV name, check for it!
+            try:
+                thinp = bd.lvm.lvinfo(vg_name, thin_pool)
+            except gi.overrides.BlockDev.LVMError as lve:
+                error = str(lve).strip()
+
+            if thinp is None:
+                raise TargetdError(TargetdError.VOLUME_GROUP_NOT_FOUND,
+                                   "VG with thin LV {} not found, "
+                                   "nested error: {}".format(pool, error))
+        else:
+            test_vg = bd.lvm.vginfo(vg_name)
+            if test_vg is None:
+                raise TargetdError(TargetdError.VOLUME_GROUP_NOT_FOUND,
+                                   "VG pool {} not found".format(vg_name))
 
         # Allowed multi-pool configs:
         # two thinpools from a single vg: ok
