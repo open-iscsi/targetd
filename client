@@ -30,7 +30,6 @@
 # Test client to exercise targetd.
 #
 
-import sys
 import json
 import time
 import socket
