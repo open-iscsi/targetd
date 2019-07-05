@@ -70,7 +70,7 @@ def pool_check(pool_name):
     pool_to_check = get_vg_lv(pool_name)[0]
 
     if pool_to_check not in [get_vg_lv(x)[0] for x in pools]:
-        raise TargetdError(-110, "Invalid pool")
+        raise TargetdError(TargetdError.INVALID_POOL, "Invalid pool")
 
 
 pools = []
@@ -102,13 +102,13 @@ def initialize(config_dict):
                 error = str(lve).strip()
 
             if thinp is None:
-                raise TargetdError(TargetdError.VOLUME_GROUP_NOT_FOUND,
+                raise TargetdError(TargetdError.NOT_FOUND_VOLUME_GROUP,
                                    "VG with thin LV {} not found, "
                                    "nested error: {}".format(pool, error))
         else:
             test_vg = bd.lvm.vginfo(vg_name)
             if test_vg is None:
-                raise TargetdError(TargetdError.VOLUME_GROUP_NOT_FOUND,
+                raise TargetdError(TargetdError.NOT_FOUND_VOLUME_GROUP,
                                    "VG pool {} not found".format(vg_name))
 
         # Allowed multi-pool configs:
@@ -118,7 +118,8 @@ def initialize(config_dict):
         #
         if thin_pool and vg_name in pools:
             raise TargetdError(
-                -1, "VG pool and thin pool from same VG not supported")
+                TargetdError.INVALID,
+                "VG pool and thin pool from same VG not supported")
 
     return dict(
         vol_list=volumes,
@@ -285,8 +286,9 @@ def export_destroy(req, pool, vol, initiator_wwn):
                 so.delete()
             break
     else:
-        raise TargetdError(-151, "Volume '%s' not found in %s exports" %
-                                 (vol, initiator_wwn))
+        raise TargetdError(TargetdError.NOT_FOUND_VOLUME_EXPORT,
+                           "Volume '%s' not found in %s exports" %
+                           (vol, initiator_wwn))
 
     # Clean up tree if branch has no leaf
     if not any(na.mapped_luns):
