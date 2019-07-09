@@ -75,6 +75,7 @@ def pool_check(pool_name):
 
 pools = []
 target_name = ""
+addresses = []
 
 
 #
@@ -87,6 +88,9 @@ def initialize(config_dict):
 
     global target_name
     target_name = config_dict['target_name']
+
+    global addresses
+    addresses = config_dict['portal_addresses']
 
     # fail early if can't access any vg
     for pool in pools:
@@ -243,13 +247,15 @@ def export_list(req):
 
 
 def export_create(req, pool, vol, initiator_wwn, lun):
-
     fm = FabricModule('iscsi')
     t = Target(fm, target_name)
     tpg = TPG(t, 1)
     tpg.enable = True
     tpg.set_attribute("authentication", '0')
-    NetworkPortal(tpg, "0.0.0.0")
+
+    for a in addresses:
+        NetworkPortal(tpg, a)
+
     na = NodeACL(tpg, initiator_wwn)
 
     tpg_lun = _tpg_lun_of(tpg, pool, vol)
