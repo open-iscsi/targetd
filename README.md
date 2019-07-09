@@ -51,9 +51,15 @@ an example:
     block_pools: [vg-targetd/thin_pool, vg-targetd-too/thin_pool]
     fs_pools: [/mnt/btrfs]
     
+    portal_addresses: ["192.168.0.10"]
+    
 targetd defaults to using the "vg-targetd/thin_pool" volume group and thin
 pool logical volume, and username 'admin'. The admin password does not have a
-default -- each installation must set it.
+default -- each installation must set it. Use the portal_addresses parameter to set 
+explicit addresses that LIO should direct iSCSI connections to, this is 
+useful if you are using a proxy such that LIO cannot correctly detect the
+public address (e.g. a Kubernetes service). The default behavior is to listen
+on all addresses (0.0.0.0).
 
 Then, in the root of the source directory, do the following as root:
 ```bash
