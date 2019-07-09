@@ -13,7 +13,8 @@ RUN apk update && \
         lvm2
 
 RUN sed -i 's/udev_rules = 1/udev_rules = 0/g' /etc/lvm/lvm.conf && \
-    sed -i 's/udev_sync = 1/udev_sync = 0/g' /etc/lvm/lvm.conf
+    sed -i 's/udev_sync = 1/udev_sync = 0/g' /etc/lvm/lvm.conf && \
+    rm -rf /usr/lib/libbd_lvm-dbus.so*
 
 RUN pip3 install \
          setproctitle \
