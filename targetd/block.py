@@ -98,7 +98,7 @@ def initialize(config_dict):
             # We have VG name and LV name, check for it!
             try:
                 thinp = bd.lvm.lvinfo(vg_name, thin_pool)
-            except gi.overrides.BlockDev.LVMError as lve:
+            except bd.LVMError as lve:
                 error = str(lve).strip()
 
             if thinp is None:
@@ -106,10 +106,13 @@ def initialize(config_dict):
                                    "VG with thin LV {} not found, "
                                    "nested error: {}".format(pool, error))
         else:
-            test_vg = bd.lvm.vginfo(vg_name)
-            if test_vg is None:
+            try:
+                bd.lvm.vginfo(vg_name)
+            except bd.LVMError as vge:
+                error = str(vge).strip()
                 raise TargetdError(TargetdError.NOT_FOUND_VOLUME_GROUP,
-                                   "VG pool {} not found".format(vg_name))
+                                   "VG pool {} not found, "
+                                   "nested error: {}".format(vg_name, error))
 
         # Allowed multi-pool configs:
         # two thinpools from a single vg: ok
@@ -172,7 +175,7 @@ def create(req, pool, name, size):
         # Fall back to non-thinp if needed
         try:
             bd.lvm.thlvcreate(vg_name, lv_pool, name, int(size))
-        except AttributeError:
+        except bd.LVMError:
             bd.lvm.lvcreate(vg_name, name, int(size), 'linear')
     else:
         bd.lvm.lvcreate(vg_name, name, int(size), 'linear')
@@ -212,8 +215,10 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
 
     try:
         bd.lvm.thsnapshotcreate(vg_name, vol_orig, vol_new, thin_pool)
-    except AttributeError:
-        raise NotImplementedError("liblvm lacks thin snap support")
+    except bd.LVMError as err:
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                           "Failed to copy volume, "
+                           "nested error: {}".format(str(err).strip()))
 
 
 def export_list(req):
