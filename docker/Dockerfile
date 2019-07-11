@@ -10,7 +10,8 @@ RUN apk update && \
         py3-rtslib \
         build-base \
         udev \
-        lvm2
+        lvm2 \
+        targetcli
 
 RUN sed -i 's/udev_rules = 1/udev_rules = 0/g' /etc/lvm/lvm.conf && \
     sed -i 's/udev_sync = 1/udev_sync = 0/g' /etc/lvm/lvm.conf && \
@@ -25,4 +26,6 @@ ADD . /targetd
 
 WORKDIR targetd
 RUN python3 setup.py install
-CMD ["/usr/bin/targetd"]
+ADD docker/launch /usr/bin
+
+CMD ["/usr/bin/launch"]
