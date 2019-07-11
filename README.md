@@ -68,3 +68,14 @@ Then, in the root of the source directory, do the following as root:
 ```
 
 client.py is a basic testing script, to get started making API calls.
+
+### Docker
+
+targetd can be run in a Docker container. This requires mounting sensitive host directories 
+and granting privileged access in order to set up LVM volumes. Use the following command:
+
+```
+docker run --privileged -v /etc/target:/etc/target -v /sys/kernel/config:/sys/kernel/config -v /run/lvm:/run/lvm -v /lib/modules:/lib/modules -v /dev:/dev -p 18700:18700 -p 3260:3260 targetd
+``` 
+
+where your config is stored at `/etc/target` on the host machine.

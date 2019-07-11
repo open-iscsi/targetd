@@ -1,0 +1,11 @@
+#!/bin/ash
+
+cleanup() {
+    targetctl save
+}
+
+trap 'cleanup' SIGTERM
+trap 'cleanup' SIGINT
+
+targetctl restore
+targetd
