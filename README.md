@@ -16,9 +16,9 @@ targetd development
 targetd is licensed under the GPLv3. Contributions are welcome.
  
  * Mailing list: [targetd-devel](https://lists.fedorahosted.org/mailman/listinfo/targetd-devel)
- * Source repo: [GitHub](https://github.com/agrover/targetd)
- * Bugs: [GitHub](https://github.com/agrover/targetd/issues) or [Trac](https://fedorahosted.org/targetd/)
- * Tarballs: [fedorahosted](https://fedorahosted.org/releases/t/a/targetd/)
+ * Source repo: [GitHub](https://github.com/open-iscsi/targetd)
+ * Bugs: [GitHub](https://github.com/open-iscsi/targetd/issues)
+ * Releases: [GitHub](https://github.com/open-iscsi/targetd/releases)
 
 **NOTE: targetd is STORAGE-RELATED software, and may be used to
   remove volumes and file systems without warning from the resources it is
@@ -27,7 +27,7 @@ targetd is licensed under the GPLv3. Contributions are welcome.
 Getting Started
 ---------------
 targetd has these Python library dependencies:
-* [python-rtslib](https://github.com/agrover/rtslib-fb) 2.1.fb42+  (must be fb*)
+* [python-rtslib](https://github.com/open-iscsi/rtslib-fb) 2.1.fb42+  (must be fb*)
 * [libblockdev](https://github.com/storaged-project/libblockdev)
 * `python3-blockdev`
 * `libblockdev-lvm-dbus` and `lvm2-dbusd` (to use the DBus API **recommended**) **or** 
