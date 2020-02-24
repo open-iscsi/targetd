@@ -1,6 +1,6 @@
 .TH targetd 8
 .SH NAME
-.B targetd
+Daemon \- targetd
 .SH DESCRIPTION
 .B targetd
 is a service to allow the remote configuration of block device volumes
@@ -14,84 +14,24 @@ as root.
 .B targetd
 uses
 .B /etc/target/targetd.yaml
-for configuration. It is in YAML format.
-.B targetd
-currently uses scalar values and collection values, see example for
-details.
-.SS CONFIGURATION FILE SETTINGS
-.B block_pools
-.br
-Sets the LVM Volume Group(s) that targetd will use to allocate
-volumes. Defaults to "vg-targetd".
+for configuration. It is in YAML format, see targetd.yaml(8) for details.
 
-Alternatively, targetd can allocate thinp (thin-provisioned) volumes
-out of a thinpool LV. These should be listed as "<vgname>/<poolname>",
-with the VG and thinpool LV names separated by a "/". These should
-already be created; targetd will not create VGs or thinpool LVs.
-
-.B fs_pools
-.br
-Sets the mount point(s) that targetd will use to export filesystems
-over NFS. Defaults to none.
-
-.B user
-.br
-.B password
-.br
-Sets the username and password required to use the remote
-API. "user" defaults to
-.BR admin ,
-but password must be set prior to using targetd.
-
-.B target_name
-.br
-Sets the iSCSI target name that
-.B targetd
-will use. Default is
-.BR iqn.2003-01.org.linux-iscsi.<hostname>:targetd .
-
-.B ssl
-.br
-.B ssl_key
-.br
-.B ssl_cert
-.br
-Settings for enabling SSL/TLS encryption.
-.B ssl
-defaults to
-.BR off .
-If enabled, it will default to looking for key and cert files named
-.B targetd_key.pem
-and
-.BR targetd_cert.pem
-in
-.BR /etc/target .
-These paths may also be specified, using the
-.B ssl_key
-and
-.B ssl_cert
-config settings.
-
-Key and self-signed cert may be generated using openssl:
-
-.B openssl genrsa -out targetd_key.pem 2048
-.br
-.B openssl req -new -x509 -key targetd_key.pem -out targetd_cert.pem -days 9999
 .SH FILES
 .B /etc/target/targetd.yaml
 .br
 .B /etc/target/targetd_key.pem
 .br
 .B /etc/target/targetd_cert.pem
+
 .SH SEE ALSO
 The remote API is defined at
 .br
-<https://github.com/agrover/targetd/blob/master/API.md>.
+<https://github.com/open-iscsi/targetd/blob/master/API.md>.
 
-targetcli(8), lvm(8), lsmcli(8)
+targetd.yaml(8), targetcli(8), lvm(8), lsmcli(8)
 .SH AUTHOR
-Written by Andy Grover <agrover@redhat.com>.
+Written by Andy Grover <andy@groveronline.com>.
 .SH REPORTING BUGS
 Report bugs via <targetd-devel@lists.fedorahosted.org>
 .br
-or <https://github.com/agrover/targetd/issues>
+or <https://github.com/open-iscsi/targetd/issues>
