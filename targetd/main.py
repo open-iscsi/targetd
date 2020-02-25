@@ -203,7 +203,11 @@ def load_config(config_path):
 
     if os.path.isfile(config_path):
         config = yaml.safe_load(open(config_path).read())
-        if config is None:
+        # If a user supplies a password as "password:whatever" we don't get
+        # a parse failure, we simply get a string with the contents.
+        # Maybe there is a better way to handle this issue where we don't
+        # have a space between key and value?
+        if config is None or type(config) is str:
             config = {}
 
     for key, value in iter(default_config.items()):
@@ -221,8 +225,10 @@ def load_config(config_path):
     config['block_pools'] = set(config['block_pools'])
     config['fs_pools'] = set(config['fs_pools'])
 
-    if not config.get('password', None):
-        log.critical("password not set in %s" % config_path)
+    passwd = config.get('password', None)
+    if not passwd or type(passwd) is not str:
+        log.critical("password not set in %s in the form 'password: string_pw'"
+                     % config_path)
         raise AttributeError
 
     # convert log level to int
