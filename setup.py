@@ -11,4 +11,5 @@ setup(
     maintainer_email='andy@groveronline.com',
     url='http://github.com/open-iscsi/targetd',
     packages=['targetd'],
+    install_requires=['setproctitle', 'yaml', 'rtslib_fb'],
     scripts=['scripts/targetd'])
