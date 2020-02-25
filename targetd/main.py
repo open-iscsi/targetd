@@ -212,6 +212,8 @@ def load_config(config_path):
 
     # compat: handle old single-pool config option
     if 'pool_name' in config:
+        log.warning("Please update config file, "
+                    "'pool_name' should be 'block_pools'")
         config['block_pools'] = [config['pool_name']]
         del config['pool_name']
 
