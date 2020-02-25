@@ -210,14 +210,14 @@ def load_config(config_path):
         if key not in config:
             config[key] = value
 
-    # compat: handle old single-pool config option
+    # compatibility: handle old single-pool config option
     if 'pool_name' in config:
         log.warning("Please update config file, "
                     "'pool_name' should be 'block_pools'")
         config['block_pools'] = [config['pool_name']]
         del config['pool_name']
 
-    # uniquify pool lists
+    # Make unique pool lists
     config['block_pools'] = set(config['block_pools'])
     config['fs_pools'] = set(config['fs_pools'])
 
