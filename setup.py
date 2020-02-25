@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name='targetd',
-    version='0.8.10',
+    version='0.8.11',
     description='Linux remote storage API daemon',
     license='GPLv3',
     maintainer='Andy Grover',
