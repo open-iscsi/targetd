@@ -4,6 +4,7 @@ RUN apk update && \
     apk add \
         python3 \
         python3-dev \
+        py3-pip \
         py3-gobject3 \
         libblockdev-dev \
         py3-libblockdev \
