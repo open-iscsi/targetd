@@ -75,6 +75,7 @@ targetd can be run in a Docker container. This requires mounting sensitive host 
 and granting privileged access in order to set up LVM volumes. Use the following command:
 
 ```
+docker build -t targetd -f docker/Dockerfile .
 docker run --privileged -v /etc/target:/etc/target -v /sys/kernel/config:/sys/kernel/config -v /run/lvm:/run/lvm -v /lib/modules:/lib/modules -v /dev:/dev -p 18700:18700 -p 3260:3260 targetd
 ``` 
 
