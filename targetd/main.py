@@ -39,6 +39,7 @@ default_config_path = "/etc/target/targetd.yaml"
 default_config = dict(
     block_pools=['vg-targetd'],
     fs_pools=[],
+    zfs_block_pools=[],
     user="admin",
     log_level='info',
     # security: no default password
@@ -224,6 +225,7 @@ def load_config(config_path):
     # Make unique pool lists
     config['block_pools'] = set(config['block_pools'])
     config['fs_pools'] = set(config['fs_pools'])
+    config['zfs_block_pools'] = set(config['zfs_block_pools'])
 
     passwd = config.get('password', None)
     if not passwd or type(passwd) is not str:
