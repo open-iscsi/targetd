@@ -1,4 +1,4 @@
-![targetd logo](https://fedorahosted.org/targetd/raw-attachment/wiki/Logo/targetd.png)
+[![Build Status](https://travis-ci.org/open-iscsi/targetd.svg?branch=master)](https://travis-ci.org/open-iscsi/targetd)
 
 Remote configuration of a LIO-based storage appliance
 -----------------------------------------------------
