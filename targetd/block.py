@@ -151,7 +151,7 @@ def destroy(req, pool, name):
 
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
-    pool_module(pool).copy(vol_orig, vol_new, timeout)
+    pool_module(pool).copy(req, pool, vol_orig, vol_new, timeout)
 
 
 def export_list(req):
