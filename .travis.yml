@@ -1,0 +1,27 @@
+---
+os: linux
+
+dist: bionic
+
+language: python
+
+before_install:
+  - sudo apt-get install -y python3
+  - sudo apt-get install -y python3-dev
+  - sudo apt-get install -y libblockdev-dev
+  - sudo apt-get install -y libblockdev-lvm2
+  - sudo apt-get install -y libblockdev-lvm-dev
+  - sudo apt-get install -y python3-blockdev
+  - sudo apt-get install -y python3-rtslib-fb
+  - sudo apt-get install -y targetcli-fb
+  - sudo apt-get install -y lvm2
+  - sudo apt-get install -y mount
+  - sudo apt-get install -y udev
+  - sudo apt-get install -y python3-yaml
+  - sudo apt-get install -y python3-setproctitle
+  - sudo apt-get install -y python3-six
+  - sudo apt-get install -y zfsutils-linux
+  - sudo apt-get install -y btrfs-progs
+
+script:
+  - sudo test/test.sh
