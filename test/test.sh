@@ -34,5 +34,12 @@ cat /tmp/targetd.log
 
 # Run the actual tests, these need work ...
 echo "Running client test ..."
-python3 client || exit 1
+python3 client
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Dumping targetd output on client error ..."
+    cat /tmp/targetd.log
+    exit $rc
+fi
+
 exit 0
