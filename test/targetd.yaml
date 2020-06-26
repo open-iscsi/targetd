@@ -2,4 +2,5 @@ user: "admin"
 target_name: iqn.2003-01.org.example.mach1:1234
 log_level: debug
 block_pools: [vg-targetd/thin_pool]
+zfs_block_pools: [zfs_targetd]
 fs_pools: [/mnt/btrfs]

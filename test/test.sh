@@ -3,6 +3,9 @@
 mkdir -p /etc/target || exit 1
 cp test/targetd.yaml /etc/target/ || exit 1
 
+# Needed for NFS functionality
+mkdir -p /etc/exports.d || exit 1
+
 # We don't place the password into the example yaml to prevent
 # people from using it and having it contain a bad password by default
 echo "password: targetd" >> /etc/target/targetd.yaml
@@ -24,6 +27,9 @@ lvcreate -L 500G -T vg-targetd/thin_pool || exit 1
 mkfs.btrfs $loop2 || exit 1
 mkdir -p /mnt/btrfs || exit 1
 mount $loop2 /mnt/btrfs || exit 1
+
+# Create needed zfs
+zpool create zfs_targetd $loop3 || exit 1
 
 export PYTHONPATH=$(pwd)
 python3 scripts/targetd > /tmp/targetd.log 2>&1 &
