@@ -246,7 +246,7 @@ def create(req, pool, name, size):
     if code != 0:
         logging.error("Could not create volume %s on pool %s. Code: %s, stderr %s"
                       % (name, pool, code, err))
-        raise RuntimeError("Could not create volume %s on pool %s" % (name, pool))
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE, "Could not create volume %s on pool %s" % (name, pool))
 
 
 def destroy(req, pool, name):
@@ -255,9 +255,9 @@ def destroy(req, pool, name):
     if code != 0:
         logging.error("Could not destroy volume %s on pool %s. Code: %s, stderr %s"
                       % (name, pool, code, err))
-        raise RuntimeError("Could not destroy volume %s on pool %s" % (name, pool))
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE, "Could not destroy volume %s on pool %s" % (name, pool))
 
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
     # TODO: should be easy to do with snapshots
-    raise RuntimeError("Copy not yet impletmented on ZFS pools")
+    raise TargetdError(TargetdError.NO_SUPPORT, "Copy not yet impletmented on ZFS pools")
