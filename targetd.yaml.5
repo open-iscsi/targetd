@@ -16,12 +16,26 @@ details.
 .B block_pools
 .br
 Sets the LVM Volume Group(s) that targetd will use to allocate
-volumes. Defaults to "vg-targetd".
+volumes. Defaults to ["vg-targetd"].
 
 Alternatively, targetd can allocate thinp (thin-provisioned) volumes
 out of a thinpool LV. These should be listed as "<vgname>/<poolname>",
 with the VG and thinpool LV names separated by a "/". These should
 already be created; targetd will not create VGs or thinpool LVs.
+
+If you want to use ZFS exclusively, this should be set as empty list.
+
+.B zfs_block_pools
+.br
+Sets the ZFS parent dataset(s) that targetd will use to allocate
+volumes. Defaults to empty list.
+
+This should be list of already existing zfs filesystem datasets.
+It cannot contain any two datasets which are in parent-child
+relationship, like "tank/ds" and "tank/ds/ds2".
+
+Using ZFS requires zfs binary to be accessible.
+Cannot contain colons even though it's supported by ZFS itself.
 
 .B fs_pools
 .br

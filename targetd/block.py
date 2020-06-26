@@ -19,21 +19,9 @@ from rtslib_fb import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
                        RTSRoot, NetworkPortal, LUN, MappedLUN, RTSLibError,
                        RTSLibNotInCFS, NodeACLGroup)
 
-import gi
-gi.require_version("GLib", "2.0")
-gi.require_version("BlockDev", "2.0")
-
-from gi.repository import GLib
-from gi.repository import BlockDev as bd
-
 from targetd.main import TargetdError
 from targetd.utils import ignored, name_check
-
-REQUESTED_PLUGIN_NAMES = {"lvm"}
-
-requested_plugins = bd.plugin_specs_from_names(REQUESTED_PLUGIN_NAMES)
-
-bd.switch_init_checks(False)
+from targetd.backends import lvm, zfs
 
 # Handle changes in rtslib_fb for the constant expressing maximum LUN number
 # https://github.com/open-iscsi/rtslib-fb/commit/20a50d9967464add8d33f723f6849a197dbe0c52
@@ -43,53 +31,55 @@ except AttributeError:
     # Library no longer exposes iSCSI limitation which we're limited too.
     MAX_LUN = 256
 
-try:
-    succ_ = bd.init(requested_plugins)
-except GLib.GError as err:
-    raise RuntimeError("Failed to initialize libbd and its plugins (%s)" %
-                       REQUESTED_PLUGIN_NAMES)
-
-
-def get_vg_lv(pool_name):
-    """
-    Checks for the existence of a '/' in the pool name.  We are using this
-    as an indicator that the vg & lv refer to a thin pool.
-    """
-    if '/' in pool_name:
-        return pool_name.split('/')
-    else:
-        return pool_name, None
-
-
-def pool_check(pool_name):
-    """
-    pool_name *cannot* be trusted, funcs taking a pool param must call
-    this or vgopen() to ensure passed-in pool name is one targetd has
-    been configured to use.
-    """
-    pool_to_check = get_vg_lv(pool_name)[0]
-
-    if pool_to_check not in [get_vg_lv(x)[0] for x in pools]:
-        raise TargetdError(TargetdError.INVALID_POOL, "Invalid pool")
-
 
 def set_portal_addresses(tpg):
     for a in addresses:
         NetworkPortal(tpg, a)
 
 
-pools = []
+pools = {
+    "zfs": [],
+    "lvm": []
+}
+pool_modules = {
+    "zfs": zfs,
+    "lvm": lvm
+}
 target_name = ""
 addresses = []
+
+
+def pool_module(pool_name):
+    for modname, mod in pool_modules.items():
+        if mod.has_pool(pool_name):
+            return mod
+    raise TargetdError(TargetdError.INVALID_POOL,
+                       "Invalid pool (%s)" % pool_name)
+
+
+def udev_path_module(udev_path):
+    for modname, mod in pool_modules.items():
+        if mod.has_udev_path(udev_path):
+            return mod
+    raise TargetdError(TargetdError.INVALID_POOL,
+                       "Pool not found by udev path (%s)" % udev_path)
+
+
+def so_name_module(so_name):
+    for modname, mod in pool_modules.items():
+        if mod.has_so_name(so_name):
+            return mod
+    raise TargetdError(TargetdError.INVALID_POOL,
+                       "Pool not found by storage object (%s)" % so_name)
 
 
 #
 # config_dict must include block_pools and target_name or we blow up
 #
 def initialize(config_dict):
-
     global pools
-    pools = config_dict['block_pools']
+    pools["lvm"] = list(config_dict['block_pools'])
+    pools["zfs"] = list(config_dict['zfs_block_pools'])
 
     global target_name
     target_name = config_dict['target_name']
@@ -97,41 +87,13 @@ def initialize(config_dict):
     global addresses
     addresses = config_dict['portal_addresses']
 
-    # fail early if can't access any vg
-    for pool in pools:
-        thinp = None
-        error = ""
-        vg_name, thin_pool = get_vg_lv(pool)
+    if any(i in pools['zfs'] for i in pools['lvm']):
+        raise TargetdError(TargetdError.INVALID,
+                           "Conflicting names in zfs_block_pools and block_pools in config.")
 
-        if vg_name and thin_pool:
-            # We have VG name and LV name, check for it!
-            try:
-                thinp = bd.lvm.lvinfo(vg_name, thin_pool)
-            except bd.LVMError as lve:
-                error = str(lve).strip()
-
-            if thinp is None:
-                raise TargetdError(TargetdError.NOT_FOUND_VOLUME_GROUP,
-                                   "VG with thin LV {} not found, "
-                                   "nested error: {}".format(pool, error))
-        else:
-            try:
-                bd.lvm.vginfo(vg_name)
-            except bd.LVMError as vge:
-                error = str(vge).strip()
-                raise TargetdError(TargetdError.NOT_FOUND_VOLUME_GROUP,
-                                   "VG pool {} not found, "
-                                   "nested error: {}".format(vg_name, error))
-
-        # Allowed multi-pool configs:
-        # two thinpools from a single vg: ok
-        # two vgs: ok
-        # vg and a thinpool from that vg: BAD
-        #
-        if thin_pool and vg_name in pools:
-            raise TargetdError(
-                TargetdError.INVALID,
-                "VG pool and thin pool from same VG not supported")
+    # initialize and check both pools
+    for modname, mod in pool_modules.items():
+        mod.initialize(pools[modname])
 
     return dict(
         vol_list=volumes,
@@ -155,39 +117,21 @@ def initialize(config_dict):
 
 
 def volumes(req, pool):
-    output = []
-    vg_name, lv_pool = get_vg_lv(pool)
-    for lv in bd.lvm.lvs(vg_name):
-        attrib = lv.attr
-        if not lv_pool:
-            if attrib[0] == '-':
-                output.append(
-                    dict(name=lv.lv_name, size=lv.size, uuid=lv.uuid))
-        else:
-            if attrib[0] == 'V' and lv.pool_lv == lv_pool:
-                output.append(
-                    dict(name=lv.lv_name, size=lv.size, uuid=lv.uuid))
-
-    return output
+    return pool_module(pool).volumes(req, pool)
 
 
 def create(req, pool, name, size):
-
+    mod = pool_module(pool)
     # Check to ensure that we don't have a volume with this name already,
-    # lvm will fail if we try to create a LV with a duplicate name
-    if any(v['name'] == name for v in volumes(req, pool)):
+    # lvm/zfs will fail if we try to create a LV/dataset with a duplicate name
+    if any(v['name'] == name for v in mod.volumes(req, pool)):
         raise TargetdError(TargetdError.NAME_CONFLICT,
                            "Volume with that name exists")
+    mod.create(req, pool, name, size)
 
-    vg_name, lv_pool = get_vg_lv(pool)
-    if lv_pool:
-        # Fall back to non-thinp if needed
-        try:
-            bd.lvm.thlvcreate(vg_name, lv_pool, name, int(size))
-        except bd.LVMError:
-            bd.lvm.lvcreate(vg_name, name, int(size), 'linear')
-    else:
-        bd.lvm.lvcreate(vg_name, name, int(size), 'linear')
+
+def get_so_name(pool, volname):
+    return pool_module(pool).get_so_name(pool, volname)
 
 
 def destroy(req, pool, name):
@@ -196,38 +140,18 @@ def destroy(req, pool, name):
         t = Target(fm, target_name, mode='lookup')
         tpg = TPG(t, 1, mode='lookup')
 
-        vg_name, lv_pool = get_vg_lv(pool)
-        so_name = "%s:%s" % (vg_name, name)
+        so_name = get_so_name(pool, name)
 
         if so_name in (lun.storage_object.name for lun in tpg.luns):
             raise TargetdError(TargetdError.VOLUME_MASKED,
                                "Volume '%s' cannot be "
                                "removed while exported" % name)
 
-    vg_name, lv_pool = get_vg_lv(pool)
-    bd.lvm.lvremove(vg_name, name)
+    pool_module(pool).destroy(req, pool, name)
 
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
-    """
-    Create a new volume that is a copy of an existing one.
-    Since 0.6, requires thinp support.
-    """
-    if any(v['name'] == vol_new for v in volumes(req, pool)):
-        raise TargetdError(TargetdError.NAME_CONFLICT,
-                           "Volume with that name exists")
-
-    vg_name, thin_pool = get_vg_lv(pool)
-
-    if not thin_pool:
-        raise RuntimeError("copy requires thin-provisioned volumes")
-
-    try:
-        bd.lvm.thsnapshotcreate(vg_name, vol_orig, vol_new, thin_pool)
-    except bd.LVMError as err:
-        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
-                           "Failed to copy volume, "
-                           "nested error: {}".format(str(err).strip()))
+    pool_module(pool).copy(req, pool, vol_orig, vol_new, timeout)
 
 
 def export_list(req):
@@ -241,18 +165,18 @@ def export_list(req):
     exports = []
     for na in tpg.node_acls:
         for mlun in na.mapped_luns:
-            mlun_vg, mlun_name = \
-                mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
-
-            lv = bd.lvm.lvinfo(mlun_vg, mlun_name)
+            mod = udev_path_module(mlun.tpg_lun.storage_object.udev_path)
+            mlun_pool, mlun_name = \
+                mod.split_udev_path(mlun.tpg_lun.storage_object.udev_path)
+            vinfo = mod.vol_info(mod.dev2pool_name(mlun_pool), mlun_name)
             exports.append(
                 dict(
                     initiator_wwn=na.node_wwn,
                     lun=mlun.mapped_lun,
                     vol_name=mlun_name,
-                    pool=mlun_vg,
-                    vol_uuid=lv.uuid,
-                    vol_size=lv.size))
+                    pool=mlun_pool,
+                    vol_uuid=vinfo.uuid,
+                    vol_size=vinfo.size))
     return exports
 
 
@@ -280,28 +204,29 @@ def export_create(req, pool, vol, initiator_wwn, lun):
 
 
 def export_destroy(req, pool, vol, initiator_wwn):
-    pool_check(pool)
+    mod = pool_module(pool)
     fm = FabricModule('iscsi')
     t = Target(fm, target_name)
     tpg = TPG(t, 1)
     na = NodeACL(tpg, initiator_wwn)
 
-    vg_name, thin_pool = get_vg_lv(pool)
+    pool_dev_name = mod.pool2dev_name(pool)
 
     for mlun in na.mapped_luns:
         # all SOs are Block so we can access udev_path safely
-        mlun_vg, mlun_name = \
-            mlun.tpg_lun.storage_object.udev_path.split("/")[2:]
+        if mod.has_udev_path(mlun.tpg_lun.storage_object.udev_path):
+            mlun_vg, mlun_name = \
+                mod.split_udev_path(mlun.tpg_lun.storage_object.udev_path)
 
-        if mlun_vg == vg_name and mlun_name == vol:
-            tpg_lun = mlun.tpg_lun
-            mlun.delete()
-            # be tidy and delete unused tpg lun mappings?
-            if not any(tpg_lun.mapped_luns):
-                so = tpg_lun.storage_object
-                tpg_lun.delete()
-                so.delete()
-            break
+            if mlun_vg == pool_dev_name and mlun_name == vol:
+                tpg_lun = mlun.tpg_lun
+                mlun.delete()
+                # be tidy and delete unused tpg lun mappings?
+                if not any(tpg_lun.mapped_luns):
+                    so = tpg_lun.storage_object
+                    tpg_lun.delete()
+                    so.delete()
+                break
     else:
         raise TargetdError(TargetdError.NOT_FOUND_VOLUME_EXPORT,
                            "Volume '%s' not found in %s exports" %
@@ -344,49 +269,8 @@ def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user,
 def block_pools(req):
     results = []
 
-    def thinp_get_free_bytes(thinp_lib_obj):
-        # we can only get used percent, so calculate an approx. free bytes
-        # These return an integer in of millionths of a percent, so
-        # add them and get a decimalization by dividing by another 100
-        #
-        # Note: It is possible for percentages to return a (-1) which depending
-        # on lvm2app library version can be returned as -1 or 2**64-1
-
-        unsigned_val = (2**64 - 1)
-        free_bytes = thinp_lib_obj.size
-        dp = thinp_lib_obj.data_percent
-        mp = thinp_lib_obj.metadata_percent
-
-        if dp != -1 and dp != unsigned_val and mp != -1 and mp != unsigned_val:
-            used_pct = float(dp + mp) / 100000000
-            fs = int(free_bytes * (1 - used_pct))
-
-            # Sanity checking, domain of free bytes should be [0..total size]
-            if 0 <= fs < free_bytes:
-                free_bytes = fs
-
-        return free_bytes
-
-    for pool in pools:
-        vg_name, tp_name = get_vg_lv(pool)
-        if not tp_name:
-            vg = bd.lvm.vginfo(vg_name)
-            results.append(
-                dict(
-                    name=pool,
-                    size=vg.size,
-                    free_size=vg.free,
-                    type='block',
-                    uuid=vg.uuid))
-        else:
-            thinp = bd.lvm.lvinfo(vg_name, tp_name)
-            results.append(
-                dict(
-                    name=pool,
-                    size=thinp.size,
-                    free_size=thinp_get_free_bytes(thinp),
-                    type='block',
-                    uuid=thinp.uuid))
+    for modname, mod in pool_modules.items():
+        results += mod.block_pools(req)
 
     return results
 
@@ -427,9 +311,9 @@ def initiator_list(req, standalone_only=False):
             return True
 
     return list({
-        'init_id': node_acl.node_wwn,
-        'init_type': 'iscsi'
-    } for node_acl in _get_iscsi_tpg().node_acls
+                    'init_id': node_acl.node_wwn,
+                    'init_type': 'iscsi'
+                } for node_acl in _get_iscsi_tpg().node_acls
                 if _condition(node_acl, standalone_only))
 
 
@@ -453,10 +337,10 @@ def access_group_list(req):
         N/A
     """
     return list({
-        'name': node_acl_group.name,
-        'init_ids': list(node_acl_group.wwns),
-        'init_type': 'iscsi',
-    } for node_acl_group in _get_iscsi_tpg().node_acl_groups)
+                    'name': node_acl_group.name,
+                    'init_ids': list(node_acl_group.wwns),
+                    'init_type': 'iscsi',
+                } for node_acl_group in _get_iscsi_tpg().node_acl_groups)
 
 
 def access_group_create(req, ag_name, init_id, init_type):
@@ -544,23 +428,21 @@ def access_group_map_list(req):
     """
     results = []
     tpg = _get_iscsi_tpg()
-    vg_name_2_pool_name_dict = {}
-    for pool_name in pools:
-        vg_name = get_vg_lv(pool_name)[0]
-        vg_name_2_pool_name_dict[vg_name] = pool_name
 
     for node_acl_group in tpg.node_acl_groups:
         for mapped_lun_group in node_acl_group.mapped_lun_groups:
             tpg_lun = mapped_lun_group.tpg_lun
             so_name = tpg_lun.storage_object.name
-            (vg_name, vol_name) = so_name.split(":")
+            mod = so_name_module(so_name)
+            pool_name, vol_name = mod.so_name2pool_volume(so_name)
+
             # When user delete old volume and the created new one with
             # idential name. The mapping status will be kept.
             # Hence we don't expose volume UUID here.
             results.append({
                 'ag_name': node_acl_group.name,
                 'h_lun_id': mapped_lun_group.mapped_lun,
-                'pool_name': vg_name_2_pool_name_dict[vg_name],
+                'pool_name': pool_name,
                 'vol_name': vol_name,
             })
 
@@ -569,21 +451,21 @@ def access_group_map_list(req):
 
 def _tpg_lun_of(tpg, pool_name, vol_name):
     """
-    Return a object of LUN for given lvm lv.
+    Return a object of LUN for given pool and volume.
     If not exist, create one.
     """
+    mod = pool_module(pool_name)
     # get wwn of volume so LIO can export as vpd83 info
-    vg_name, thin_pool = get_vg_lv(pool_name)
-    vol_serial = bd.lvm.lvinfo(vg_name, vol_name).uuid
+    vol_serial = mod.vol_info(pool_name, vol_name).uuid
 
     # only add new SO if it doesn't exist
     # so.name concats pool & vol names separated by ':'
-    so_name = "%s:%s" % (vg_name, vol_name)
+    so_name = mod.get_so_name(pool_name, vol_name)
     try:
         so = BlockStorageObject(so_name)
     except RTSLibError:
         so = BlockStorageObject(
-            so_name, dev="/dev/%s/%s" % (vg_name, vol_name))
+            so_name, dev=mod.get_dev_path(pool_name, vol_name))
         so.wwn = vol_serial
 
     # export useful scsi model if kernel > 3.8
@@ -593,7 +475,7 @@ def _tpg_lun_of(tpg, pool_name, vol_name):
     # only add tpg lun if it doesn't exist
     for tmp_lun in tpg.luns:
         if tmp_lun.storage_object.name == so.name and \
-           tmp_lun.storage_object.plugin == 'block':
+                tmp_lun.storage_object.plugin == 'block':
             return tmp_lun
     else:
         return LUN(tpg, storage_object=so)
@@ -614,8 +496,8 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
         tgt_map_list = access_group_map_list(req)
         for tgt_map in tgt_map_list:
             if tgt_map['ag_name'] == ag_name and \
-               tgt_map['pool_name'] == pool_name and \
-               tgt_map['vol_name'] == vol_name:
+                    tgt_map['pool_name'] == pool_name and \
+                    tgt_map['vol_name'] == vol_name:
                 # Already masked.
                 return None
 
@@ -630,8 +512,8 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
     if h_lun_id is None:
         # Find out next available host LUN ID
         # Assuming max host LUN ID is MAX_LUN
-        free_h_lun_ids = set(range(MAX_LUN+1)) - \
-            set([int(x.mapped_lun) for x in tpg_lun.mapped_luns])
+        free_h_lun_ids = set(range(MAX_LUN + 1)) - \
+                         set([int(x.mapped_lun) for x in tpg_lun.mapped_luns])
         if len(free_h_lun_ids) == 0:
             raise TargetdError(TargetdError.NO_FREE_HOST_LUN_ID,
                                "All host LUN ID 0 ~ %d is in use" % MAX_LUN)
