@@ -3,6 +3,9 @@
 mkdir -p /etc/target || exit 1
 cp test/targetd.yaml /etc/target/ || exit 1
 
+# Needed for NFS functionality
+mkdir -p /etc/exports.d || exit 1
+
 # We don't place the password into the example yaml to prevent
 # people from using it and having it contain a bad password by default
 echo "password: targetd" >> /etc/target/targetd.yaml
