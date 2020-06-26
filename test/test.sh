@@ -25,6 +25,9 @@ mkfs.btrfs $loop2 || exit 1
 mkdir -p /mnt/btrfs || exit 1
 mount $loop2 /mnt/btrfs || exit 1
 
+# Create needed zfs
+zpool create zfs_targetd $loop3 || exit 1
+
 export PYTHONPATH=$(pwd)
 python3 scripts/targetd > /tmp/targetd.log 2>&1 &
 
