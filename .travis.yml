@@ -22,6 +22,7 @@ before_install:
   - sudo apt-get install -y python3-six
   - sudo apt-get install -y zfsutils-linux
   - sudo apt-get install -y btrfs-progs
+  - sudo apt-get install -y nfs-kernel-server
 
 script:
   - sudo test/test.sh
