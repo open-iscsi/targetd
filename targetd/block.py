@@ -93,7 +93,7 @@ def initialize(config_dict):
 
     # initialize and check both pools
     for modname, mod in pool_modules.items():
-        mod.initialize(pools[modname])
+        mod.initialize(config_dict, pools[modname])
 
     return dict(
         vol_list=volumes,

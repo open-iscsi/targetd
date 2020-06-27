@@ -37,6 +37,13 @@ relationship, like "tank/ds" and "tank/ds/ds2".
 Using ZFS requires zfs binary to be accessible.
 Cannot contain colons even though it's supported by ZFS itself.
 
+.B zfs_enable_copy
+.br
+Enables copy method on ZFS volumes.
+.B Warning:
+copying ZFS volumes will make source volumes unable to be deleted
+as long as copies exist. This is due to ZFS snapshot/clone limitations.
+
 .B fs_pools
 .br
 Sets the mount point(s) that targetd will use to export filesystems

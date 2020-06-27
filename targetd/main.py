@@ -40,6 +40,7 @@ default_config = dict(
     block_pools=['vg-targetd'],
     fs_pools=[],
     zfs_block_pools=[],
+    zfs_enable_copy=False,
     user="admin",
     log_level='info',
     # security: no default password

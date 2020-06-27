@@ -121,7 +121,7 @@ def get_dev_path(pool_name, vol_name):
     return "/dev/%s/%s" % (pool2dev_name(pool_name), vol_name)
 
 
-def initialize(init_pools):
+def initialize(config_dict, init_pools):
     global pools
     check_pools_access(init_pools)
     pools = init_pools

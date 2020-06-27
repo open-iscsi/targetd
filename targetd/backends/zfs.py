@@ -18,11 +18,13 @@ import distutils.spawn
 import logging
 import re
 import subprocess
+from time import time
 
 from targetd.main import TargetdError
 
 pools = []
 zfs_cmd = ""
+zfs_enable_copy = False
 ALLOWED_DATASET_NAMES = re.compile('^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
 
 
@@ -109,8 +111,10 @@ def get_dev_path(pool_name, vol_name):
     return "/dev/%s/%s" % (pool2dev_name(pool_name), vol_name)
 
 
-def initialize(init_pools):
+def initialize(config_dict, init_pools):
     global pools
+    global zfs_enable_copy
+    zfs_enable_copy = config_dict['zfs_enable_copy']
     check_pools_access(init_pools)
     pools = init_pools
 
@@ -251,13 +255,42 @@ def create(req, pool, name, size):
 
 def destroy(req, pool, name):
     _check_dataset_name(name)
-    code, out, err = _zfs_exec_command(["destroy", pool + "/" + name])
+    # -r will destroy snapshots and children but not dependant clones
+    code, out, err = _zfs_exec_command(["destroy", "-r", pool + "/" + name])
     if code != 0:
-        logging.error("Could not destroy volume %s on pool %s. Code: %s, stderr %s"
-                      % (name, pool, code, err))
+        if b'volume has dependent clones' in err:
+            logging.error(
+                "Volume %s on %s has dependent clones and cannot be destroyed. Stderr: %s" % (name, pool, err))
+            raise TargetdError(TargetdError.INVALID_ARGUMENT,
+                               "Volume %s on %s has dependent clones and cannot be destroyed." % (name, pool))
+        else:
+            logging.error("Could not destroy volume %s on pool %s. Code: %s, stderr %s"
+                          % (name, pool, code, err))
         raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE, "Could not destroy volume %s on pool %s" % (name, pool))
 
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
-    # TODO: should be easy to do with snapshots
-    raise TargetdError(TargetdError.NO_SUPPORT, "Copy not yet impletmented on ZFS pools")
+    if not zfs_enable_copy:
+        raise TargetdError(TargetdError.NO_SUPPORT, "Copy on ZFS disabled. Consult manual before enabling it.")
+    _check_dataset_name(vol_orig)
+    _check_dataset_name(vol_new)
+    if vol_info(pool, vol_orig) is None:
+        raise TargetdError(TargetdError.INVALID_ARGUMENT,
+                           "Source volume %s does not exist on pool %s" % (vol_orig, pool))
+    if vol_info(pool, vol_new) is not None:
+        raise TargetdError(TargetdError.NAME_CONFLICT,
+                           "Destination volume %s already exists on pool %s" % (vol_new, pool))
+    snap = vol_new + str(int(time()))
+    code, out, err = _zfs_exec_command(["snapshot", "%s/%s@%s" % (pool, vol_orig, snap)])
+    if code != 0:
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                           "Could not create snapshot of %s on pool %s" % (vol_orig, pool))
+    code, out, err = _zfs_exec_command(["clone",
+                                        "%s/%s@%s" % (pool, vol_orig, snap),
+                                        "%s/%s" % (pool, vol_new)
+                                        ])
+    if code != 0:
+        # try cleaning up the snapshot if cloning goes wrong
+        _zfs_exec_command(["destroy", "%s/%s@%s" % (pool, vol_orig, snap)])
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                           "Could not create clone of %s@%s on pool %s" % (vol_orig, snap, pool))
