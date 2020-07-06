@@ -38,6 +38,9 @@ sleep 5 || exit 1
 echo "Dumping targetd output ..."
 cat /tmp/targetd.log
 
+# get/buid/run libstoragemgmt tests
+./test/lsm_test.sh || exit 1
+
 # Run the actual tests, these need work ...
 echo "Running client test ..."
 python3 client
