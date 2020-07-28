@@ -375,8 +375,16 @@ def _copy(req, pool, vol_orig, vol_new, info_fn, snap=None):
 def ss(req, pool, name):
     snapshots = []
 
-    allprops = _zfs_get([pool+"/"+name], ["name", "guid", "creation"], False, "snapshot")
+    # NOTE: Recursive is set to True as the ZFS version on Ubuntu in Travis does not appreciate getting snapshots
+    # by passing in a non-snapshot name. Somewhere between version 0.7.5 and 0.8.4 this got fixed
+    allprops = _zfs_get([pool+"/"+name], ["name", "guid", "creation"], True, "snapshot")
     for fullname, props in allprops.items():
+        # Filter out any subvolume snapshots (these should not generally exist though
+        # and indicate an administration issue)
+        if not fullname.startswith(pool+"/"+name+"@"):
+            logging.warning("found additional subvolumes with snapshots while trying to list snapshots. Please do not"
+                            " create subvolumes underneath targetd managed subvolumes")
+            continue
         time_epoch = int(props['creation'])
         st = dict(name=props['name'].replace((pool + "/" + name + "@"), "", 1), uuid=props['guid'], timestamp=time_epoch)
         snapshots.append(st)
@@ -385,6 +393,8 @@ def ss(req, pool, name):
 
 
 def fs_snapshot(req, pool, name, dest_ss_name):
+    _check_dataset_name(name)
+    _check_dataset_name(dest_ss_name)
     info = snap_info(pool, name, dest_ss_name)
     if info is not None:
         raise TargetdError(TargetdError.NAME_CONFLICT,
@@ -397,6 +407,8 @@ def fs_snapshot(req, pool, name, dest_ss_name):
 
 
 def fs_snapshot_delete(req, pool, name, ss_name):
+    _check_dataset_name(name)
+    _check_dataset_name(ss_name)
     info = snap_info(pool, name, ss_name)
     if info is None:
         return
