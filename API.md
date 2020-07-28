@@ -250,7 +250,7 @@ Errors:
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The
-pool is a btrfs sub volume and new file systems are sub volumes within that
+pool is a btrfs or ZFS sub volume and new file systems are sub volumes within that
 sub volume.
 
 ### fs_list()

@@ -49,7 +49,7 @@ pools = []
 def fs_initialize(config_dict, init_pools):
 
     global pools
-    pools = init_pools
+    pools = [fs['mount'] for fs in init_pools]
 
     for pool in pools:
         # Make sure we have the appropriate subvolumes available

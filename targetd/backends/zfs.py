@@ -17,17 +17,16 @@
 import distutils.spawn
 import logging
 import re
-import subprocess
-from time import time
+import subprocess, os
+from time import time, mktime, strptime
 
 from targetd.main import TargetdError
 
 pools = []
-fs_pools = []
+pools_fs = []
 zfs_cmd = ""
 zfs_enable_copy = False
 ALLOWED_DATASET_NAMES = re.compile('^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
-
 
 class VolInfo(object):
     """
@@ -64,7 +63,7 @@ def has_fs_pool(pool_name):
         This can be used to check if module owns given fs_pool without raising
         exception
     """
-    return pool_name in fs_pools
+    return pool_name in pools_fs
 
 def has_udev_path(udev_path):
     try:
@@ -128,11 +127,11 @@ def initialize(config_dict, init_pools):
 
 
 def fs_initialize(config_dict, init_pools):
-    global fs_pools
+    global pools_fs
     global zfs_enable_copy
     zfs_enable_copy = zfs_enable_copy or config_dict['zfs_enable_copy']
-    check_pools_access(init_pools)
-    fs_pools = init_pools
+    pools_fs = [fs['device'] for fs in init_pools]
+    check_pools_access(pools_fs)
 
 
 def _check_dataset_name(name):
@@ -253,6 +252,34 @@ def volumes(req, pool):
     return results
 
 
+def fs_hash():
+    if not zfs_cmd:
+        return {}
+
+    fs_list = {}
+
+    for pool in pools_fs:
+        allprops = _zfs_get([pool], ["name","mountpoint","guid","used","available"], True, "filesystem")
+
+        for fullname, props in allprops.items():
+            if fullname == pool:
+                continue
+
+            sub_vol = fullname.replace(pool + "/", "", 1)
+
+            key = props["name"]
+            fs_list[key] = dict(
+                name=sub_vol,
+                uuid=props["guid"],
+                total_space=int(props["used"]) + int(props["available"]),
+                free_space=int(props["available"]),
+                pool=pool,
+                full_path=props["mountpoint"]
+            )
+
+    return fs_list
+
+
 def vol_info(pool, name):
     props = _zfs_get([pool + "/" + name], ["guid", "volsize"], fstype="volume")
     if (pool + "/" + name) in props:
@@ -260,9 +287,33 @@ def vol_info(pool, name):
         return VolInfo(props["guid"], int(props["volsize"]))
 
 
+def fs_info(pool, name):
+    props = _zfs_get([pool + "/" + name], ["guid", "used", "available"], fstype="filesystem")
+    if (pool + "/" + name) in props:
+        props = props[pool + "/" + name]
+        return VolInfo(props["guid"], int(props["available"])+int(props["used"]))
+
+
+def snap_info(pool, name, snapshot):
+    props = _zfs_get([pool + "/" + name + "@" + snapshot], ["guid"], fstype="snapshot")
+    if (pool + "/" + name + "@" + snapshot) in props:
+        props = props[pool + "/" + name + "@" + snapshot]
+        return dict(name=pool + "/" + name + "@" + snapshot,
+                    uuid=props["guid"])
+
+
 def create(req, pool, name, size):
     _check_dataset_name(name)
     code, out, err = _zfs_exec_command(["create", "-V", str(size), pool + "/" + name])
+    if code != 0:
+        logging.error("Could not create volume %s on pool %s. Code: %s, stderr %s"
+                      % (name, pool, code, err))
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE, "Could not create volume %s on pool %s" % (name, pool))
+
+
+def fs_create(req, pool, name, size):
+    _check_dataset_name(name)
+    code, out, err = _zfs_exec_command(["create", pool + "/" + name])
     if code != 0:
         logging.error("Could not create volume %s on pool %s. Code: %s, stderr %s"
                       % (name, pool, code, err))
@@ -285,22 +336,31 @@ def destroy(req, pool, name):
         raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE, "Could not destroy volume %s on pool %s" % (name, pool))
 
 
+def fs_destroy(req, pool, name):
+    destroy(req, pool, name)
+
+
 def copy(req, pool, vol_orig, vol_new, timeout=10):
+    _copy(req, pool, vol_orig, vol_new, vol_info)
+
+
+def _copy(req, pool, vol_orig, vol_new, info_fn, snap=None):
     if not zfs_enable_copy:
         raise TargetdError(TargetdError.NO_SUPPORT, "Copy on ZFS disabled. Consult manual before enabling it.")
     _check_dataset_name(vol_orig)
     _check_dataset_name(vol_new)
-    if vol_info(pool, vol_orig) is None:
+    if info_fn(pool, vol_orig) is None:
         raise TargetdError(TargetdError.INVALID_ARGUMENT,
                            "Source volume %s does not exist on pool %s" % (vol_orig, pool))
-    if vol_info(pool, vol_new) is not None:
+    if info_fn(pool, vol_new) is not None:
         raise TargetdError(TargetdError.NAME_CONFLICT,
                            "Destination volume %s already exists on pool %s" % (vol_new, pool))
-    snap = vol_new + str(int(time()))
-    code, out, err = _zfs_exec_command(["snapshot", "%s/%s@%s" % (pool, vol_orig, snap)])
-    if code != 0:
-        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
-                           "Could not create snapshot of %s on pool %s" % (vol_orig, pool))
+    if snap is None:
+        snap = vol_new + str(int(time()))
+        code, out, err = _zfs_exec_command(["snapshot", "%s/%s@%s" % (pool, vol_orig, snap)])
+        if code != 0:
+            raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                               "Could not create snapshot of %s on pool %s" % (vol_orig, pool))
     code, out, err = _zfs_exec_command(["clone",
                                         "%s/%s@%s" % (pool, vol_orig, snap),
                                         "%s/%s" % (pool, vol_new)
@@ -310,3 +370,52 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
         _zfs_exec_command(["destroy", "%s/%s@%s" % (pool, vol_orig, snap)])
         raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
                            "Could not create clone of %s@%s on pool %s" % (vol_orig, snap, pool))
+
+
+def ss(req, pool, name):
+    snapshots = []
+
+    allprops = _zfs_get([pool+"/"+name], ["name", "guid", "creation"], False, "snapshot")
+    for fullname, props in allprops.items():
+        time_epoch = int(props['creation'])
+        st = dict(name=props['name'].replace((pool + "/" + name + "@"), "", 1), uuid=props['guid'], timestamp=time_epoch)
+        snapshots.append(st)
+
+    return snapshots
+
+
+def fs_snapshot(req, pool, name, dest_ss_name):
+    info = snap_info(pool, name, dest_ss_name)
+    if info is not None:
+        raise TargetdError(TargetdError.NAME_CONFLICT,
+                           "Snapshot {0} already exists on pool {1} for {2}".format(dest_ss_name, pool, name))
+
+    code, out, err = _zfs_exec_command(["snapshot", "{0}/{1}@{2}".format(pool, name, dest_ss_name)])
+    if code != 0:
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                           "Could not create snapshot")
+
+
+def fs_snapshot_delete(req, pool, name, ss_name):
+    info = snap_info(pool, name, ss_name)
+    if info is None:
+        return
+
+    code, out, err = _zfs_exec_command(["destroy", "-r", "{0}/{1}@{2}".format(pool, name, ss_name)])
+    if code != 0:
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                           "Could not destroy snapshot")
+
+def fs_clone(req, pool, name, dest_fs_name, snapshot_name=None):
+    _copy(req, pool, name, dest_fs_name, fs_info, snapshot_name)
+
+def fs_pools(req):
+    results = []
+
+    for pool in pools_fs:
+        allprops = _zfs_get([pool], ["name","used","available"], False, "filesystem")
+        if pool in allprops:
+            props = allprops[pool]
+            results.append(dict(name=pool, size=(int(props["used"])+int(props["available"])), free_size=int(props["available"]), type='fs'))
+
+    return results
