@@ -23,6 +23,7 @@ from time import time
 from targetd.main import TargetdError
 
 pools = []
+fs_pools = []
 zfs_cmd = ""
 zfs_enable_copy = False
 ALLOWED_DATASET_NAMES = re.compile('^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
@@ -57,6 +58,13 @@ def has_pool(pool_name):
     """
     return pool_name in pools
 
+
+def has_fs_pool(pool_name):
+    """
+        This can be used to check if module owns given fs_pool without raising
+        exception
+    """
+    return pool_name in fs_pools
 
 def has_udev_path(udev_path):
     try:
@@ -114,9 +122,17 @@ def get_dev_path(pool_name, vol_name):
 def initialize(config_dict, init_pools):
     global pools
     global zfs_enable_copy
-    zfs_enable_copy = config_dict['zfs_enable_copy']
+    zfs_enable_copy = zfs_enable_copy or config_dict['zfs_enable_copy']
     check_pools_access(init_pools)
     pools = init_pools
+
+
+def fs_initialize(config_dict, init_pools):
+    global fs_pools
+    global zfs_enable_copy
+    zfs_enable_copy = zfs_enable_copy or config_dict['zfs_enable_copy']
+    check_pools_access(init_pools)
+    fs_pools = init_pools
 
 
 def _check_dataset_name(name):
