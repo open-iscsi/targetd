@@ -76,6 +76,11 @@ def initialize(config_dict):
 
     all_fs_pools = list(config_dict['fs_pools'])
 
+    for mount in all_fs_pools:
+        if not os.path.exists(mount):
+            raise TargetdError(TargetdError.NOT_FOUND_FS,
+                               'The fs_pool {0} does not exist'.format(mount))
+
     for info in Mount.mounted_filesystems():
         if info[Mount.MOUNT_POINT] in all_fs_pools:
             filesystem = info[Mount.FS_TYPE]
