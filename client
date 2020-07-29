@@ -48,7 +48,7 @@ path = '/targetrpc'
 id_num = 1
 ssl = False
 pools = ['vg-targetd/thin_pool','zfs_targetd/block_pool']
-fs_pools = ['/mnt/btrfs','zfs_targetd/fs_pool']
+fs_pools = ['/mnt/btrfs','/zfs_targetd/fs_pool']
 
 def jsonrequest(method, params=None):
     print("%s %s" % ("+" * 20, method))

@@ -23,7 +23,7 @@ from time import time, mktime, strptime
 from targetd.main import TargetdError
 
 pools = []
-pools_fs = []
+pools_fs = dict()
 zfs_cmd = ""
 zfs_enable_copy = False
 ALLOWED_DATASET_NAMES = re.compile('^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
@@ -64,6 +64,7 @@ def has_fs_pool(pool_name):
         exception
     """
     return pool_name in pools_fs
+
 
 def has_udev_path(udev_path):
     try:
@@ -130,8 +131,8 @@ def fs_initialize(config_dict, init_pools):
     global pools_fs
     global zfs_enable_copy
     zfs_enable_copy = zfs_enable_copy or config_dict['zfs_enable_copy']
-    pools_fs = [fs['device'] for fs in init_pools]
-    check_pools_access(pools_fs)
+    pools_fs = {fs['mount']: fs['device'] for fs in init_pools}
+    check_pools_access(list(pools_fs.values()))
 
 
 def _check_dataset_name(name):
@@ -258,14 +259,14 @@ def fs_hash():
 
     fs_list = {}
 
-    for pool in pools_fs:
-        allprops = _zfs_get([pool], ["name","mountpoint","guid","used","available"], True, "filesystem")
+    for pool, zfs_pool in pools_fs.items():
+        allprops = _zfs_get([zfs_pool], ["name","mountpoint","guid","used","available"], True, "filesystem")
 
         for fullname, props in allprops.items():
-            if fullname == pool:
+            if fullname == zfs_pool:
                 continue
 
-            sub_vol = fullname.replace(pool + "/", "", 1)
+            sub_vol = fullname.replace(zfs_pool + "/", "", 1)
 
             key = props["name"]
             fs_list[key] = dict(
@@ -313,7 +314,8 @@ def create(req, pool, name, size):
 
 def fs_create(req, pool, name, size):
     _check_dataset_name(name)
-    code, out, err = _zfs_exec_command(["create", pool + "/" + name])
+    zfs_pool = pools_fs[pool]
+    code, out, err = _zfs_exec_command(["create", zfs_pool + "/" + name])
     if code != 0:
         logging.error("Could not create volume %s on pool %s. Code: %s, stderr %s"
                       % (name, pool, code, err))
@@ -337,7 +339,8 @@ def destroy(req, pool, name):
 
 
 def fs_destroy(req, pool, name):
-    destroy(req, pool, name)
+    zfs_pool = pools_fs[pool]
+    destroy(req, zfs_pool, name)
 
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
@@ -375,18 +378,20 @@ def _copy(req, pool, vol_orig, vol_new, info_fn, snap=None):
 def ss(req, pool, name):
     snapshots = []
 
+    zfs_pool = pools_fs[pool]
+
     # NOTE: Recursive is set to True as the ZFS version on Ubuntu in Travis does not appreciate getting snapshots
     # by passing in a non-snapshot name. Somewhere between version 0.7.5 and 0.8.4 this got fixed
-    allprops = _zfs_get([pool+"/"+name], ["name", "guid", "creation"], True, "snapshot")
+    allprops = _zfs_get([zfs_pool+"/"+name], ["name", "guid", "creation"], True, "snapshot")
     for fullname, props in allprops.items():
         # Filter out any subvolume snapshots (these should not generally exist though
         # and indicate an administration issue)
-        if not fullname.startswith(pool+"/"+name+"@"):
+        if not fullname.startswith(zfs_pool+"/"+name+"@"):
             logging.warning("found additional subvolumes with snapshots while trying to list snapshots. Please do not"
                             " create subvolumes underneath targetd managed subvolumes")
             continue
         time_epoch = int(props['creation'])
-        st = dict(name=props['name'].replace((pool + "/" + name + "@"), "", 1), uuid=props['guid'], timestamp=time_epoch)
+        st = dict(name=props['name'].replace((zfs_pool + "/" + name + "@"), "", 1), uuid=props['guid'], timestamp=time_epoch)
         snapshots.append(st)
 
     return snapshots
@@ -395,12 +400,15 @@ def ss(req, pool, name):
 def fs_snapshot(req, pool, name, dest_ss_name):
     _check_dataset_name(name)
     _check_dataset_name(dest_ss_name)
-    info = snap_info(pool, name, dest_ss_name)
+
+    zfs_pool = pools_fs[pool]
+
+    info = snap_info(zfs_pool, name, dest_ss_name)
     if info is not None:
         raise TargetdError(TargetdError.NAME_CONFLICT,
                            "Snapshot {0} already exists on pool {1} for {2}".format(dest_ss_name, pool, name))
 
-    code, out, err = _zfs_exec_command(["snapshot", "{0}/{1}@{2}".format(pool, name, dest_ss_name)])
+    code, out, err = _zfs_exec_command(["snapshot", "{0}/{1}@{2}".format(zfs_pool, name, dest_ss_name)])
     if code != 0:
         raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
                            "Could not create snapshot")
@@ -409,25 +417,32 @@ def fs_snapshot(req, pool, name, dest_ss_name):
 def fs_snapshot_delete(req, pool, name, ss_name):
     _check_dataset_name(name)
     _check_dataset_name(ss_name)
-    info = snap_info(pool, name, ss_name)
+
+    zfs_pool = pools_fs[pool]
+
+    info = snap_info(zfs_pool, name, ss_name)
     if info is None:
         return
 
-    code, out, err = _zfs_exec_command(["destroy", "-r", "{0}/{1}@{2}".format(pool, name, ss_name)])
+    code, out, err = _zfs_exec_command(["destroy", "-r", "{0}/{1}@{2}".format(zfs_pool, name, ss_name)])
     if code != 0:
         raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
                            "Could not destroy snapshot")
 
+
 def fs_clone(req, pool, name, dest_fs_name, snapshot_name=None):
-    _copy(req, pool, name, dest_fs_name, fs_info, snapshot_name)
+    zfs_pool = pools_fs[pool]
+
+    _copy(req, zfs_pool, name, dest_fs_name, fs_info, snapshot_name)
+
 
 def fs_pools(req):
     results = []
 
-    for pool in pools_fs:
-        allprops = _zfs_get([pool], ["name","used","available"], False, "filesystem")
-        if pool in allprops:
-            props = allprops[pool]
+    for pool, zfs_pool in pools_fs.items():
+        allprops = _zfs_get([zfs_pool], ["name","used","available"], False, "filesystem")
+        if zfs_pool in allprops:
+            props = allprops[zfs_pool]
             results.append(dict(name=pool, size=(int(props["used"])+int(props["available"])), free_size=int(props["available"]), type='fs'))
 
     return results
