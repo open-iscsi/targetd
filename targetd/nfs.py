@@ -46,7 +46,7 @@ class Export(object):
         "async": ASYNC,
         "no_wdelay": NO_WDELAY,
         "nohide": NOHIDE,
-        "cross_mnt": CROSS_MNT,
+        "crossmnt": CROSS_MNT,
         "no_subtree_check": NO_SUBTREE_CHECK,
         "insecure_locks": INSECURE_LOCKS,
         "root_squash": ROOT_SQUASH,
