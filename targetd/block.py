@@ -174,7 +174,7 @@ def export_list(req):
                     initiator_wwn=na.node_wwn,
                     lun=mlun.mapped_lun,
                     vol_name=mlun_name,
-                    pool=mlun_pool,
+                    pool=mod.dev2pool_name(mlun_pool),
                     vol_uuid=vinfo.uuid,
                     vol_size=vinfo.size))
     return exports
