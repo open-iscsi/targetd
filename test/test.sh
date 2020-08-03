@@ -30,6 +30,8 @@ mount $loop2 /mnt/btrfs || exit 1
 
 # Create needed zfs
 zpool create zfs_targetd $loop3 || exit 1
+zfs create zfs_targetd/block_pool || exit 1
+zfs create zfs_targetd/fs_pool || exit 1
 
 export PYTHONPATH=$(pwd)
 python3 scripts/targetd > /tmp/targetd.log 2>&1 &
@@ -39,7 +41,13 @@ echo "Dumping targetd output ..."
 cat /tmp/targetd.log
 
 # get/buid/run libstoragemgmt tests
-./test/lsm_test.sh || exit 1
+./test/lsm_test.sh
+rc=$?
+if [ $rc -ne 0 ]; then
+  echo "Dumping targetd output on libstoragemgmt error ..."
+  cat /tmp/targetd.log
+  exit $rc
+fi
 
 # Run the actual tests, these need work ...
 echo "Running client test ..."

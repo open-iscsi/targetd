@@ -47,8 +47,8 @@ port = 18700
 path = '/targetrpc'
 id_num = 1
 ssl = False
-pool = 'vg-targetd/thin_pool'
-
+pools = ['vg-targetd/thin_pool','zfs_targetd/block_pool']
+fs_pools = ['/mnt/btrfs','/zfs_targetd/fs_pool']
 
 def jsonrequest(method, params=None):
     print("%s %s" % ("+" * 20, method))
@@ -103,50 +103,140 @@ for result in results:
     print("pool %s %s %s" % (str(result['name']), str(result['size']),
                              str(result['free_size'])))
 
-results = jsonrequest("vol_list", dict(pool=pool))
-for result in results:
-    print("vol %s %s %s" % (str(result['name']), str(result['size']),
-                            str(result['uuid'])))
-
 #sys.exit(1)
+failed = False
 
-try:
-    jsonrequest('vol_create', dict(pool=pool, name="test2", size=4000000))
+for pool in pools:
+    print("Testing block pool: {0}".format(pool))
+
+    results = jsonrequest("vol_list", dict(pool=pool))
+    for result in results:
+        print("vol %s %s %s" % (str(result['name']), str(result['size']),
+                                str(result['uuid'])))
 
     try:
-        jsonrequest("vol_copy",
-                    dict(pool=pool, vol_orig="test2", vol_new="test2-copy"))
+        jsonrequest('vol_create', dict(pool=pool, name="test2", size=4*1024*1024))
 
         try:
-            jsonrequest("export_create",
-                        dict(
-                            pool=pool,
-                            vol="test2",
-                            lun=5,
-                            initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+            jsonrequest("vol_copy",
+                        dict(pool=pool, vol_orig="test2", vol_new="test2-copy"))
 
-            print("waiting")
-            time.sleep(5)
-            results = jsonrequest("export_list")
-            for result in results:
-                print("export %s %s %s %s %s" % (str(result['initiator_wwn']),
-                                                 str(result['pool']),
-                                                 str(result['vol_name']),
-                                                 str(result['lun']),
-                                                 str(result['vol_uuid'])))
-            time.sleep(5)
-            print("go!")
+            try:
+                jsonrequest("export_create",
+                            dict(
+                                pool=pool,
+                                vol="test2",
+                                lun=5,
+                                initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+
+                print("waiting")
+                time.sleep(5)
+                results = jsonrequest("export_list")
+                for result in results:
+                    print("export %s %s %s %s %s" % (str(result['initiator_wwn']),
+                                                     str(result['pool']),
+                                                     str(result['vol_name']),
+                                                     str(result['lun']),
+                                                     str(result['vol_uuid'])))
+                time.sleep(5)
+                print("go!")
+
+            finally:
+                jsonrequest("export_destroy",
+                            dict(
+                                pool=pool,
+                                vol="test2",
+                                initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
 
         finally:
-            jsonrequest("export_destroy",
-                        dict(
-                            pool=pool,
-                            vol="test2",
-                            initiator_wwn="iqn.2006-03.com.wtf.ohyeah:666"))
+            jsonrequest("vol_destroy", dict(pool=pool, name="test2-copy"))
 
     finally:
-        jsonrequest("vol_destroy", dict(pool=pool, name="test2-copy"))
+        jsonrequest("vol_destroy", dict(pool=pool, name="test2"))
+        print("done")
 
-finally:
-    jsonrequest("vol_destroy", dict(pool=pool, name="test2"))
-    print("done")
+    print("block volumes left over:")
+    results = jsonrequest("vol_list", dict(pool=pool))
+    for fs in results:
+        print("{pool}: {uuid} -> {name}".format(**fs))
+        # No filesystems should be left
+        failed = True
+
+    if failed:
+        print("Test failed")
+        exit(1)
+
+# ZFS fs tests
+for fs_pool in fs_pools:
+    fs_uuid = None
+
+    print("Testing FS Pool {0}".format(fs_pool))
+    try:
+        jsonrequest('fs_create', dict(pool_name=fs_pool, name="test-fs", size_bytes=0))
+
+        results = jsonrequest('fs_list')
+        for fs in results:
+            print("{pool}: {uuid} -> {name}".format(**fs))
+            if fs['pool'] != fs_pool:
+                failed = True
+                raise Exception("unrecognized pool filesystem")
+            fs_uuid = fs['uuid']
+
+            ss_uuid = None
+
+            try:
+                jsonrequest('fs_snapshot', dict(fs_uuid=fs_uuid, dest_ss_name="test-snapshot"))
+
+                ss_results = jsonrequest('ss_list', dict(fs_uuid=fs_uuid))
+
+                has_snapshot = False
+                for ss in ss_results:
+                    print("{uuid} -> {name} ({timestamp})".format(**ss))
+                    if ss['name'] != "test-snapshot":
+                        failed = True
+                        raise Exception("unrecognized snapshot")
+
+                    ss_uuid = ss['uuid']
+                    has_snapshot = True
+
+                    clone_uuid = None
+
+                    try:
+                        jsonrequest("fs_clone", dict(fs_uuid=fs_uuid, dest_fs_name="test-clone", snapshot_id=ss_uuid))
+
+                        clone_results = jsonrequest('fs_list')
+
+                        has_clone = False
+                        for result in clone_results:
+                            print("{pool}: {uuid} -> {name}".format(**result))
+                            if result['name'] == 'test-clone':
+                                clone_uuid = result['uuid']
+                                has_clone = True
+                        if not has_clone:
+                            failed = True
+                            raise Exception("test-clone not found")
+                    finally:
+                        if clone_uuid is not None:
+                            jsonrequest("fs_destroy",dict(uuid=clone_uuid))
+
+                if not has_snapshot:
+                    failed = True
+                    raise Exception("test-snapshot not found")
+
+            finally:
+                if ss_uuid is not None:
+                    jsonrequest("fs_snapshot_delete", dict(fs_uuid=fs_uuid, ss_uuid=ss_uuid))
+    finally:
+        if fs_uuid is not None:
+            jsonrequest("fs_destroy", dict(uuid=fs_uuid))
+
+    print("fs'es left over:")
+    results = jsonrequest("fs_list")
+    for fs in results:
+        print("{pool}: {uuid} -> {name}".format(**fs))
+        # No filesystems should be left
+        failed = True
+
+    if failed:
+        print("Test failed")
+        exit(1)
