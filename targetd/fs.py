@@ -43,10 +43,6 @@ from targetd.backends import btrfs, zfs
 
 import logging as log
 
-fs_path = "targetd_fs"
-ss_path = "targetd_ss"
-fs_cmd = 'btrfs'
-
 pools = {
     "zfs": [],
     "btrfs": []
