@@ -27,7 +27,7 @@ class Export(object):
     ASYNC = 0x00000010
     NO_WDELAY = 0x00000020
     NOHIDE = 0x00000040
-    CROSS_MNT = 0x00000080
+    CROSSMNT = 0x00000080
     NO_SUBTREE_CHECK = 0x00000100
     INSECURE_LOCKS = 0x00000200
     ROOT_SQUASH = 0x00000400
@@ -46,7 +46,7 @@ class Export(object):
         "async": ASYNC,
         "no_wdelay": NO_WDELAY,
         "nohide": NOHIDE,
-        "cross_mnt": CROSS_MNT,
+        "crossmnt": CROSSMNT,
         "no_subtree_check": NO_SUBTREE_CHECK,
         "insecure_locks": INSECURE_LOCKS,
         "root_squash": ROOT_SQUASH,
