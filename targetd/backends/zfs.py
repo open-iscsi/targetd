@@ -28,6 +28,7 @@ zfs_cmd = ""
 zfs_enable_copy = False
 ALLOWED_DATASET_NAMES = re.compile('^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
 
+
 class VolInfo(object):
     """
         Just to have attributes compatible with LVM info.
@@ -38,16 +39,6 @@ class VolInfo(object):
     def __init__(self, uuid, size):
         self.uuid = uuid
         self.size = size
-
-
-def pool_check(pool_name):
-    """
-        pool_name *cannot* be trusted, funcs taking a pool param must call
-        this to ensure passed-in pool name is one targetd has
-        been configured to use.
-    """
-    if not has_pool(pool_name):
-        raise TargetdError(TargetdError.INVALID_POOL, "Invalid pool (ZFS)")
 
 
 def has_pool(pool_name):

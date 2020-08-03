@@ -96,17 +96,6 @@ def fs_space_values(mount_point):
     return total, free
 
 
-def pool_check(pool_name):
-    """
-    pool_name *cannot* be trusted, funcs taking a pool param must call
-    this or to ensure passed-in pool name is one targetd has
-    been configured to use.
-    """
-    if pool_name not in pools:
-        raise TargetdError(TargetdError.INVALID_POOL,
-                           "Invalid filesystem pool (Btrfs)")
-
-
 def has_fs_pool(pool_name):
     """
         This can be used to check if module owns given fs_pool without raising
@@ -116,8 +105,6 @@ def has_fs_pool(pool_name):
 
 
 def fs_create(req, pool_name, name, size_bytes):
-    pool_check(pool_name)
-
     full_path = os.path.join(pool_name, fs_path, name)
 
     if not os.path.exists(full_path):
