@@ -68,7 +68,7 @@ class Export(object):
         anongid=int,
         sec=str)
 
-    export_regex = '([\/a-zA-Z0-9\.-_]+)[\s]+(.+)\((.+)\)'
+    export_regex = r"([\/a-zA-Z0-9\.\-_]+)[\s]+(.+)\((.+)\)"
     octal_nums_regex = r"""\\([0-7][0-7][0-7])"""
 
     @staticmethod
