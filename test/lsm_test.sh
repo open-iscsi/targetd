@@ -3,6 +3,8 @@
 # Not finding libStorageMgmt packages, so let download and build.  We should
 # try and fix that.
 
+TEST_DIR=$1
+
 cd /tmp || exit 1
 
 git clone http://github.com/libstorage/libstoragemgmt || exit 1
@@ -41,7 +43,7 @@ LSMDLOG=/tmp/lsmd.log
 PYTHONPATH=$PYENV daemon/lsmd -v -d --plugindir `pwd`/plugin > $LSMDLOG 2>&1 &
 
 # Run the client test
-PYTHONPATH=$PYENV test/plugin_test.py -v --uri targetd://admin@localhost --password targetd
+PYTHONPATH=$PYENV test/plugin_test.py -v --uri targetd+ssl://admin@localhost?ca_cert_file=$TEST_DIR/targetd_cert.pem --password targetd
 
 rc=$?
 if [ $rc -ne 0 ]; then
