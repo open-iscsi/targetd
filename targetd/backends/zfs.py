@@ -18,7 +18,7 @@ import distutils.spawn
 import logging
 import re
 import subprocess
-from time import time
+from time import time, sleep
 
 from targetd.main import TargetdError
 
@@ -147,14 +147,26 @@ def _zfs_find_cmd():
 
 
 def _zfs_exec_command(args=None):
+
     if args is None:
         args = []
-    proc = subprocess.Popen([zfs_cmd] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (out, err) = proc.communicate()
-    if proc.returncode != 0:
-        logging.debug("zfs command returned non-zero status: %s, %s. Stderr: %s. Stdout: %s"
-                      % (proc.returncode, args, out, err))
-    return proc.returncode, out, err
+
+    for _ in range(3):
+        proc = subprocess.Popen([zfs_cmd] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (out, err) = proc.communicate()
+        if proc.returncode != 0:
+            logging.debug("zfs command returned non-zero status: %s, %s. Stderr: %s. Stdout: %s"
+                          % (proc.returncode, args, out, err))
+            # See: https://github.com/openzfs/zfs/issues/1810
+            if b"dataset is busy" in err:
+                sleep(1)
+                logging.debug("Retrying on 'dataset is busy' error ...")
+                continue
+            else:
+                return proc.returncode, out, err
+        else:
+            return proc.returncode, out, err
+
 
 
 def _zfs_get(datasets, properties, recursive=False, fstype="all"):

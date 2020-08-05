@@ -359,12 +359,6 @@ class TestTargetd(unittest.TestCase):
             # Create a volume, copy it, destroy the copy, destroy original
             vol = TestTargetd._vol_create(block_pool, vol_name)
             vol_copy = TestTargetd._vol_copy(block_pool, vol, vol_copy_name)
-
-            # It appears we run into a race condition on zfs with the error
-            # "dataset is busy", lets sleep a bit to make this hopefully go
-            # away.  More here: https://github.com/openzfs/zfs/issues/1810
-            time.sleep(10)
-
             self._vol_destroy(block_pool, vol_copy)
             self._vol_destroy(block_pool, vol)
 
