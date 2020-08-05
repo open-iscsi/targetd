@@ -1,1 +1,5 @@
 *.pyc
+.coverage
+htmlcov
+*.pem
+test/*.pem
