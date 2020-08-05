@@ -15,9 +15,9 @@
 #
 # Utility functions.
 
-from subprocess import Popen, PIPE
-from contextlib import contextmanager
 import re
+from contextlib import contextmanager
+from subprocess import Popen, PIPE
 
 
 @contextmanager

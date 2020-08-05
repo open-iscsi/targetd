@@ -19,9 +19,9 @@ from rtslib_fb import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
                        RTSRoot, NetworkPortal, LUN, MappedLUN, RTSLibError,
                        RTSLibNotInCFS, NodeACLGroup)
 
+from targetd.backends import lvm, zfs
 from targetd.main import TargetdError
 from targetd.utils import ignored, name_check
-from targetd.backends import lvm, zfs
 
 # Handle changes in rtslib_fb for the constant expressing maximum LUN number
 # https://github.com/open-iscsi/rtslib-fb/commit/20a50d9967464add8d33f723f6849a197dbe0c52

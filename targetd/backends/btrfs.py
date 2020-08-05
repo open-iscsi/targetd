@@ -16,8 +16,10 @@
 #
 # fs support using btrfs.
 
+import logging as log
 import os
 import time
+
 from targetd.utils import invoke, TargetdError
 
 # Notes:
@@ -36,8 +38,6 @@ from targetd.utils import invoke, TargetdError
 # <mount>/targetd_ss/<fsname>/<snapshot name>
 #
 # There may be better ways of utilizing btrfs.
-
-import logging as log
 
 fs_path = "targetd_fs"
 ss_path = "targetd_ss"

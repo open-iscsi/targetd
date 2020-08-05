@@ -17,8 +17,8 @@
 import distutils.spawn
 import logging
 import re
-import subprocess, os
-from time import time, mktime, strptime
+import subprocess
+from time import time
 
 from targetd.main import TargetdError
 

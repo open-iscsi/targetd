@@ -17,10 +17,12 @@
 # sharable resources on the local machine, such as the LIO
 # kernel target.
 
-import os
-import setproctitle
-import signal
 import json
+import os
+import signal
+
+import setproctitle
+
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 except ImportError:

@@ -17,12 +17,11 @@
 # fs support using btrfs.
 
 import os
-import time
 
+from targetd.backends import btrfs, zfs
 from targetd.mount import Mount
 from targetd.nfs import Nfs, Export
-from targetd.utils import invoke, TargetdError
-from targetd.backends import btrfs, zfs
+from targetd.utils import TargetdError
 
 # Notes:
 #
@@ -40,8 +39,6 @@ from targetd.backends import btrfs, zfs
 # <mount>/targetd_ss/<fsname>/<snapshot name>
 #
 # There may be better ways of utilizing btrfs.
-
-import logging as log
 
 pools = {
     "zfs": [],
