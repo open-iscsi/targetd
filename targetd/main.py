@@ -19,6 +19,7 @@
 
 import os
 import setproctitle
+import signal
 import json
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
@@ -263,8 +264,20 @@ def update_mapping():
     mapping['pool_list'] = pool_list
 
 
+RUN = True
+
+
+def handler(signum, frame):
+    global RUN
+    if signum == signal.SIGINT:
+        log.info("SIGINT received, shutting down ...")
+        RUN = False
+
+
 def main():
     server = None
+
+    signal.signal(signal.SIGINT, handler)
 
     try:
         load_config(default_config_path)
@@ -291,14 +304,13 @@ def main():
         server_class = HTTPService
         note = "(TLS no)"
 
-    try:
-        server = server_class(('', 18700), TargetHandler)
-        log.info("started server %s", note)
-        server.serve_forever()
-    except KeyboardInterrupt:
-        log.info("SIGINT received, shutting down")
-        if server is not None:
-            server.socket.close()
-        return -1
+    server = server_class(('', 18700), TargetHandler)
+    log.info("started server %s", note)
+
+    server.timeout = 0.5
+    while RUN:
+        server.handle_request()
+
+    server.socket.close()
 
     return 0
