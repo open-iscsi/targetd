@@ -152,9 +152,8 @@ class HTTPService(HTTPServer, object):
     """
     Handle requests one at a time
 
-    Note: The liblvm library we use is not thread safe, thus we need to
-    serialize access to it.  It has locking for concurrent process usage, but
-    we will keep things simple by serializing calls to it.
+    Note: Many things we are calling into are not thread safe and/or cannot be
+    done concurrently.  We will process things one at a time.
     """
 
 
