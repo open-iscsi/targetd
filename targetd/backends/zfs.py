@@ -306,6 +306,11 @@ def create(req, pool, name, size):
 def fs_create(req, pool, name, size):
     _check_dataset_name(name)
     zfs_pool = pools_fs[pool]
+
+    if fs_info(zfs_pool, name) is not None:
+        raise TargetdError(TargetdError.EXISTS_FS_NAME,
+                           "FS already exists with that name (ZFS)")
+
     code, out, err = _zfs_exec_command(["create", zfs_pool + "/" + name])
     if code != 0:
         logging.error("Could not create volume %s on pool %s. Code: %s, stderr %s"
@@ -423,6 +428,10 @@ def fs_snapshot_delete(req, pool, name, ss_name):
 
 def fs_clone(req, pool, name, dest_fs_name, snapshot_name=None):
     zfs_pool = pools_fs[pool]
+
+    if fs_info(zfs_pool, dest_fs_name) is not None:
+        raise TargetdError(TargetdError.EXISTS_CLONE_NAME,
+                           "FS already exists with that name (ZFS)")
 
     _copy(req, zfs_pool, name, dest_fs_name, fs_info, snapshot_name)
 
