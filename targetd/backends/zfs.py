@@ -348,9 +348,7 @@ def _copy(req, pool, vol_orig, vol_new, info_fn, snap=None):
         raise TargetdError(TargetdError.NO_SUPPORT, "Copy on ZFS disabled. Consult manual before enabling it.")
     _check_dataset_name(vol_orig)
     _check_dataset_name(vol_new)
-    if info_fn(pool, vol_orig) is None:
-        raise TargetdError(TargetdError.INVALID_ARGUMENT,
-                           "Source volume %s does not exist on pool %s" % (vol_orig, pool))
+
     if info_fn(pool, vol_new) is not None:
         raise TargetdError(TargetdError.NAME_CONFLICT,
                            "Destination volume %s already exists on pool %s" % (vol_new, pool))
