@@ -396,7 +396,7 @@ def fs_snapshot(req, pool, name, dest_ss_name):
 
     info = snap_info(zfs_pool, name, dest_ss_name)
     if info is not None:
-        raise TargetdError(TargetdError.NAME_CONFLICT,
+        raise TargetdError(TargetdError.EXISTS_FS_NAME,
                            "Snapshot {0} already exists on pool {1} for {2}".format(dest_ss_name, pool, name))
 
     code, out, err = _zfs_exec_command(["snapshot", "{0}/{1}@{2}".format(zfs_pool, name, dest_ss_name)])
