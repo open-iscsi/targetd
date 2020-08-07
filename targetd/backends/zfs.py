@@ -17,8 +17,8 @@
 import distutils.spawn
 import logging
 import re
-import subprocess, os
-from time import time, mktime, strptime
+import subprocess
+from time import time, sleep
 
 from targetd.main import TargetdError
 
@@ -27,6 +27,7 @@ pools_fs = dict()
 zfs_cmd = ""
 zfs_enable_copy = False
 ALLOWED_DATASET_NAMES = re.compile('^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
+
 
 class VolInfo(object):
     """
@@ -38,16 +39,6 @@ class VolInfo(object):
     def __init__(self, uuid, size):
         self.uuid = uuid
         self.size = size
-
-
-def pool_check(pool_name):
-    """
-        pool_name *cannot* be trusted, funcs taking a pool param must call
-        this to ensure passed-in pool name is one targetd has
-        been configured to use.
-    """
-    if not has_pool(pool_name):
-        raise TargetdError(TargetdError.INVALID_POOL, "Invalid pool (ZFS)")
 
 
 def has_pool(pool_name):
@@ -156,14 +147,26 @@ def _zfs_find_cmd():
 
 
 def _zfs_exec_command(args=None):
+
     if args is None:
         args = []
-    proc = subprocess.Popen([zfs_cmd] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (out, err) = proc.communicate()
-    if proc.returncode != 0:
-        logging.debug("zfs command returned non-zero status: %s, %s. Stderr: %s. Stdout: %s"
-                      % (proc.returncode, args, out, err))
-    return proc.returncode, out, err
+
+    for _ in range(3):
+        proc = subprocess.Popen([zfs_cmd] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (out, err) = proc.communicate()
+        if proc.returncode != 0:
+            logging.debug("zfs command returned non-zero status: %s, %s. Stderr: %s. Stdout: %s"
+                          % (proc.returncode, args, out, err))
+            # See: https://github.com/openzfs/zfs/issues/1810
+            if b"dataset is busy" in err:
+                sleep(1)
+                logging.debug("Retrying on 'dataset is busy' error ...")
+                continue
+            else:
+                return proc.returncode, out, err
+        else:
+            return proc.returncode, out, err
+
 
 
 def _zfs_get(datasets, properties, recursive=False, fstype="all"):
@@ -315,6 +318,11 @@ def create(req, pool, name, size):
 def fs_create(req, pool, name, size):
     _check_dataset_name(name)
     zfs_pool = pools_fs[pool]
+
+    if fs_info(zfs_pool, name) is not None:
+        raise TargetdError(TargetdError.EXISTS_FS_NAME,
+                           "FS already exists with that name (ZFS)")
+
     code, out, err = _zfs_exec_command(["create", zfs_pool + "/" + name])
     if code != 0:
         logging.error("Could not create volume %s on pool %s. Code: %s, stderr %s"
@@ -352,9 +360,7 @@ def _copy(req, pool, vol_orig, vol_new, info_fn, snap=None):
         raise TargetdError(TargetdError.NO_SUPPORT, "Copy on ZFS disabled. Consult manual before enabling it.")
     _check_dataset_name(vol_orig)
     _check_dataset_name(vol_new)
-    if info_fn(pool, vol_orig) is None:
-        raise TargetdError(TargetdError.INVALID_ARGUMENT,
-                           "Source volume %s does not exist on pool %s" % (vol_orig, pool))
+
     if info_fn(pool, vol_new) is not None:
         raise TargetdError(TargetdError.NAME_CONFLICT,
                            "Destination volume %s already exists on pool %s" % (vol_new, pool))
@@ -405,7 +411,7 @@ def fs_snapshot(req, pool, name, dest_ss_name):
 
     info = snap_info(zfs_pool, name, dest_ss_name)
     if info is not None:
-        raise TargetdError(TargetdError.NAME_CONFLICT,
+        raise TargetdError(TargetdError.EXISTS_FS_NAME,
                            "Snapshot {0} already exists on pool {1} for {2}".format(dest_ss_name, pool, name))
 
     code, out, err = _zfs_exec_command(["snapshot", "{0}/{1}@{2}".format(zfs_pool, name, dest_ss_name)])
@@ -432,6 +438,10 @@ def fs_snapshot_delete(req, pool, name, ss_name):
 
 def fs_clone(req, pool, name, dest_fs_name, snapshot_name=None):
     zfs_pool = pools_fs[pool]
+
+    if fs_info(zfs_pool, dest_fs_name) is not None:
+        raise TargetdError(TargetdError.EXISTS_CLONE_NAME,
+                           "FS already exists with that name (ZFS)")
 
     _copy(req, zfs_pool, name, dest_fs_name, fs_info, snapshot_name)
 

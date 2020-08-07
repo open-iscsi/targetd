@@ -51,16 +51,6 @@ def get_vg_lv(pool_name):
         return pool_name, None
 
 
-def pool_check(pool_name):
-    """
-        pool_name *cannot* be trusted, funcs taking a pool param must call
-        this or vgopen() to ensure passed-in pool name is one targetd has
-        been configured to use.
-    """
-    if not has_pool(pool_name):
-        raise TargetdError(TargetdError.INVALID_POOL, "Invalid pool (LVM)")
-
-
 def has_pool(pool_name):
     """
         This can be used to check if module owns given pool without raising

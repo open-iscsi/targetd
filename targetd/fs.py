@@ -17,12 +17,11 @@
 # fs support using btrfs.
 
 import os
-import time
 
+from targetd.backends import btrfs, zfs
 from targetd.mount import Mount
 from targetd.nfs import Nfs, Export
-from targetd.utils import invoke, TargetdError
-from targetd.backends import btrfs, zfs
+from targetd.utils import TargetdError
 
 # Notes:
 #
@@ -40,8 +39,6 @@ from targetd.backends import btrfs, zfs
 # <mount>/targetd_ss/<fsname>/<snapshot name>
 #
 # There may be better ways of utilizing btrfs.
-
-import logging as log
 
 pools = {
     "zfs": [],
@@ -126,26 +123,21 @@ def fs_snapshot(req, fs_uuid, dest_ss_name):
     :return:
     """
     fs_ht = _get_fs_by_uuid(req, fs_uuid)
-
-    if fs_ht:
-        pool_module(fs_ht['pool']).fs_snapshot(req, fs_ht['pool'], fs_ht['name'], dest_ss_name)
+    pool_module(fs_ht['pool']).fs_snapshot(req, fs_ht['pool'], fs_ht['name'], dest_ss_name)
 
 
 def fs_snapshot_delete(req, fs_uuid, ss_uuid):
     fs_ht = _get_fs_by_uuid(req, fs_uuid)
     snapshot = _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs_ht)
-    if fs_ht and snapshot:
-        pool_module(fs_ht['pool']).fs_snapshot_delete(req, fs_ht['pool'], fs_ht['name'], snapshot['name'])
+    pool_module(fs_ht['pool']).fs_snapshot_delete(req, fs_ht['pool'], fs_ht['name'], snapshot['name'])
 
 
 def fs_destroy(req, uuid):
     # Check to see if this file system has any read-only snapshots, if yes then
     # delete.  The API requires a FS to list its RO copies, we may want to
     # reconsider this decision.
-
     fs_ht = _get_fs_by_uuid(req, uuid)
-    if fs_ht:
-        pool_module(fs_ht['pool']).fs_destroy(req, fs_ht['pool'], fs_ht['name'])
+    pool_module(fs_ht['pool']).fs_destroy(req, fs_ht['pool'], fs_ht['name'])
 
 
 def fs_pools(req):
@@ -181,6 +173,7 @@ def _get_fs_by_uuid(req, fs_uuid):
     for f in fs(req):
         if f['uuid'] == fs_uuid:
             return f
+    raise TargetdError(TargetdError.NOT_FOUND_FS, "fs_uuid not found")
 
 
 def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs_ht=None):
@@ -190,19 +183,13 @@ def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs_ht=None):
     for s in ss(req, fs_uuid, fs_ht):
         if s['uuid'] == ss_uuid:
             return s
+    raise TargetdError(TargetdError.NOT_FOUND_SS, "snapshot not found")
 
 
 def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
     fs_ht = _get_fs_by_uuid(req, fs_uuid)
-
-    if not fs_ht:
-        raise TargetdError(TargetdError.NOT_FOUND_FS, "fs_uuid not found")
-
     if snapshot_id:
         snapshot = _get_ss_by_uuid(req, fs_uuid, snapshot_id)
-        if not snapshot:
-            raise TargetdError(TargetdError.NOT_FOUND_SS, "snapshot not found")
-
         source = snapshot['name']
     else:
         source = None

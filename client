@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # based on code from git://github.com/openstack/nova.git
 # nova/volume/nexenta/jsonrpc.py
@@ -34,6 +34,8 @@ import json
 import time
 import socket
 import base64
+import ssl
+from test import testlib
 
 try:
     from urllib.request import (Request, urlopen)
@@ -46,13 +48,17 @@ host = 'localhost'
 port = 18700
 path = '/targetrpc'
 id_num = 1
-ssl = False
+use_ssl = True
 pools = ['vg-targetd/thin_pool','zfs_targetd/block_pool']
 fs_pools = ['/mnt/btrfs','/zfs_targetd/fs_pool']
+
+
+ctx = ssl.create_default_context(cafile=testlib.cert_file)
 
 def jsonrequest(method, params=None):
     print("%s %s" % ("+" * 20, method))
     global id_num
+    global use_ssl
     data = json.dumps(
         dict(id=id_num, method=method, params=params, jsonrpc="2.0"))
     id_num += 1
@@ -63,19 +69,23 @@ def jsonrequest(method, params=None):
         'Authorization': 'Basic %s' % (auth, )
     }
     #print('Sending JSON data: %s' % data)
-    if ssl:
+    if use_ssl:
         scheme = 'https'
     else:
         scheme = 'http'
     url = "%s://%s:%s%s" % (scheme, host, port, path)
     try:
         request = Request(url, data.encode('utf-8'), headers)
-        response_obj = urlopen(request)
+        if use_ssl:
+            response_obj = urlopen(request, context=ctx)
+        else:
+            response_obj = urlopen(request)
     except socket.error as e:
         print("error, retrying with SSL")
         url = "https://%s:%s%s" % (host, port, path)
         request = Request(url, data, headers)
-        response_obj = urlopen(request)
+        response_obj = urlopen(request, context=ctx)
+        use_ssl = True
     response_data = response_obj.read().decode('utf-8')
     #print('Got response: %s' % response_data)
     response = json.loads(response_data)

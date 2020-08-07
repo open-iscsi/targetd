@@ -15,9 +15,9 @@
 #
 # Utility functions.
 
-from subprocess import Popen, PIPE
-from contextlib import contextmanager
 import re
+from contextlib import contextmanager
+from subprocess import Popen, PIPE
 
 
 @contextmanager
@@ -47,6 +47,7 @@ class TargetdError(Exception):
 
     # Specific to block
     EXISTS_INITIATOR = -52
+    NOT_FOUND_VOLUME = -103
     NOT_FOUND_VOLUME_GROUP = -152
     NOT_FOUND_ACCESS_GROUP = -200
     VOLUME_MASKED = -303

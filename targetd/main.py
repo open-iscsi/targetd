@@ -17,9 +17,12 @@
 # sharable resources on the local machine, such as the LIO
 # kernel target.
 
-import os
-import setproctitle
 import json
+import os
+import signal
+
+import setproctitle
+
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 except ImportError:
@@ -151,9 +154,8 @@ class HTTPService(HTTPServer, object):
     """
     Handle requests one at a time
 
-    Note: The liblvm library we use is not thread safe, thus we need to
-    serialize access to it.  It has locking for concurrent process usage, but
-    we will keep things simple by serializing calls to it.
+    Note: Many things we are calling into are not thread safe and/or cannot be
+    done concurrently.  We will process things one at a time.
     """
 
 
@@ -263,8 +265,20 @@ def update_mapping():
     mapping['pool_list'] = pool_list
 
 
+RUN = True
+
+
+def handler(signum, frame):
+    global RUN
+    if signum == signal.SIGINT:
+        log.info("SIGINT received, shutting down ...")
+        RUN = False
+
+
 def main():
     server = None
+
+    signal.signal(signal.SIGINT, handler)
 
     try:
         load_config(default_config_path)
@@ -291,14 +305,13 @@ def main():
         server_class = HTTPService
         note = "(TLS no)"
 
-    try:
-        server = server_class(('', 18700), TargetHandler)
-        log.info("started server %s", note)
-        server.serve_forever()
-    except KeyboardInterrupt:
-        log.info("SIGINT received, shutting down")
-        if server is not None:
-            server.socket.close()
-        return -1
+    server = server_class(('', 18700), TargetHandler)
+    log.info("started server %s", note)
+
+    server.timeout = 0.5
+    while RUN:
+        server.handle_request()
+
+    server.socket.close()
 
     return 0

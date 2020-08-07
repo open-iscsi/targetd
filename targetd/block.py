@@ -19,9 +19,9 @@ from rtslib_fb import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
                        RTSRoot, NetworkPortal, LUN, MappedLUN, RTSLibError,
                        RTSLibNotInCFS, NodeACLGroup)
 
+from targetd.backends import lvm, zfs
 from targetd.main import TargetdError
 from targetd.utils import ignored, name_check
-from targetd.backends import lvm, zfs
 
 # Handle changes in rtslib_fb for the constant expressing maximum LUN number
 # https://github.com/open-iscsi/rtslib-fb/commit/20a50d9967464add8d33f723f6849a197dbe0c52
@@ -120,11 +120,18 @@ def volumes(req, pool):
     return pool_module(pool).volumes(req, pool)
 
 
+def check_vol_exists(req, pool, name):
+    mod = pool_module(pool)
+    if any(v['name'] == name for v in mod.volumes(req, pool)):
+        return True
+    return False
+
+
 def create(req, pool, name, size):
     mod = pool_module(pool)
     # Check to ensure that we don't have a volume with this name already,
     # lvm/zfs will fail if we try to create a LV/dataset with a duplicate name
-    if any(v['name'] == name for v in mod.volumes(req, pool)):
+    if check_vol_exists(req, pool, name):
         raise TargetdError(TargetdError.NAME_CONFLICT,
                            "Volume with that name exists")
     mod.create(req, pool, name, size)
@@ -135,6 +142,11 @@ def get_so_name(pool, volname):
 
 
 def destroy(req, pool, name):
+    mod = pool_module(pool)
+    if not check_vol_exists(req, pool, name):
+        raise TargetdError(TargetdError.NOT_FOUND_VOLUME,
+                           "Volume %s not found in pool %s" % (name, pool))
+
     with ignored(RTSLibNotInCFS):
         fm = FabricModule('iscsi')
         t = Target(fm, target_name, mode='lookup')
@@ -151,6 +163,10 @@ def destroy(req, pool, name):
 
 
 def copy(req, pool, vol_orig, vol_new, timeout=10):
+    mod = pool_module(pool)
+    if not check_vol_exists(req, pool, vol_orig):
+        raise TargetdError(TargetdError.NOT_FOUND_VOLUME,
+                           "Volume %s not found in pool %s" % (vol_orig, pool))
     pool_module(pool).copy(req, pool, vol_orig, vol_new, timeout)
 
 
@@ -174,7 +190,7 @@ def export_list(req):
                     initiator_wwn=na.node_wwn,
                     lun=mlun.mapped_lun,
                     vol_name=mlun_name,
-                    pool=mlun_pool,
+                    pool=mod.dev2pool_name(mlun_pool),
                     vol_uuid=vinfo.uuid,
                     vol_size=vinfo.size))
     return exports
