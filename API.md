@@ -291,11 +291,11 @@ Returns an array of supported NFS client authentication mechanisms.
 ### nfs_export_list()
 Returns an array of export objects.  Each export object contains: `host`, `path`, `options`.
 
-### nfs_export_add(host, path, options)
-Adds a NFS export given a `host`, and an export `path` to export and a list of `options`
+### nfs_export_add(host, path, options, chown)
+Adds a NFS export given a `host`, export `path` to export, list of `options` and optionally a chown specification.
 Options is a list of NFS export options.  Each option can be either a single value
-eg. no_root_squash or can be a `key=value` like `sec=sys`.  See `man 5 exports` for all available
-supported options and the formats supported for `host`.
+eg. no_root_squash or can be a `key=value` like `sec=sys`. See `man 5 exports` for all available supported options and
+the formats supported for `host`. `Chown` follows the chown format of `uid:gid` or simply `uid` in numerical form.
 
 ### nfs_export_remove(host, path)
 Removes a NFS export given a `host` and an export `path`

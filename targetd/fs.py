@@ -66,6 +66,9 @@ def pool_module(pool_name):
 def initialize(config_dict):
 
     global pools
+    global allow_chown
+
+    allow_chown = config_dict['allow_chown']
 
     all_fs_pools = list(config_dict['fs_pools'])
 
@@ -209,7 +212,7 @@ def nfs_export_list(req):
     return rc
 
 
-def nfs_export_add(req, host, path, export_path, options):
+def nfs_export_add(req, host, path, options, chown=None, export_path=None):
 
     if export_path is not None:
         raise TargetdError(TargetdError.NFS_NO_SUPPORT,
@@ -225,7 +228,20 @@ def nfs_export_add(req, host, path, export_path, options):
         else:
             bit_opt |= Export.bool_option[o]
 
+    if allow_chown and chown is not None:
+        items = chown.split(':')
+        uid = items[0]
+        gid = -1
+        if len(items) > 1:
+            gid = items[1]
+        try:
+            os.chown(path, uid, gid)
+        except TypeError as e:
+            raise TargetdError(TargetdError.INVALID_ARGUMENT,
+                               "Wrong chown arguments: {}".format(e))
+
     Nfs.export_add(host, path, bit_opt, key_opt)
+    return {host: host, path: path}
 
 
 def nfs_export_remove(req, host, path):
