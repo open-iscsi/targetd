@@ -238,13 +238,13 @@ def nfs_export_add(req, host, path, options=None, chown=None, export_path=None):
         if not allow_chown:
             raise TargetdError(TargetdError.NO_SUPPORT, "Chown is disabled. Consult manual before enabling it.")
         items = chown.split(':')
-        uid = items[0]
-        gid = -1
-        if len(items) > 1:
-            gid = items[1]
         try:
+            uid = int(items[0])
+            gid = -1
+            if len(items) > 1:
+                gid = int(items[1])
             os.chown(path, uid, gid)
-        except TypeError as e:
+        except ValueError as e:
             raise TargetdError(TargetdError.INVALID_ARGUMENT,
                                "Wrong chown arguments: {}".format(e))
 
