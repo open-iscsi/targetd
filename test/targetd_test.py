@@ -355,10 +355,10 @@ class TestTargetd(unittest.TestCase):
 
     def _nfs_export_add(self, host, path, options, chown=None):
 
-        answer = jsonrequest(
+        answer = TargetdObj.build(jsonrequest(
             "nfs_export_add",
             dict(
-                host=host, path=path, options=options, chown=chown))
+                host=host, path=path, options=options, chown=chown)))
 
         self.assertEqual(answer.host, host)
         self.assertEqual(answer.path, path)
@@ -697,28 +697,30 @@ class TestTargetd(unittest.TestCase):
     def test_gp_nfs_export_add(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export_target = "{}/{}".format(fs_pool, fs)
+            export_target = "{}/{}".format(fs_pool.name, fs.name)
             export = self._nfs_export_add("0.0.0.0/0", export_target, "insecure")
             self._nfs_export_remove(export.host, export.path, "insecure")
 
     def test_gp_nfs_export_add_chown_uid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export_target = "{}/{}".format(fs_pool, fs)
+            export_target = "{}/{}".format(fs_pool.name, fs.name)
             export = self._nfs_export_add("0.0.0.0/0", export_target, "insecure", "1000")
             self._nfs_export_remove(export.host, export.path, "insecure")
+            self._fs_destroy(fs)
 
     def test_gp_nfs_export_add_chown_uid_gid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export_target = "{}/{}".format(fs_pool, fs)
+            export_target = "{}/{}".format(fs_pool.name, fs.name)
             export = self._nfs_export_add("0.0.0.0/0", export_target, "insecure", "1000:1000")
             self._nfs_export_remove(export.host, export.path, "insecure")
+            self._fs_destroy(fs)
 
     def test_ep_nfs_export_add_chown_invalid_uid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export_target = "{}/{}".format(fs_pool, fs)
+            export_target = "{}/{}".format(fs_pool.name, fs.name)
             error_code = 0
             try:
                 self._nfs_export_add("0.0.0.0/0", export_target, "insecure", "testuser")
@@ -728,6 +730,7 @@ class TestTargetd(unittest.TestCase):
                 error_code, TargetdError.INVALID_ARGUMENT,
                 "nfs_export_add expecting INVALID_ARGUMENT when trying to use uid"
                 " as non numerical")
+            self._fs_destroy(fs)
 
     def tearDown(self):
         for e in TestTargetd._export_list():
