@@ -234,7 +234,9 @@ def nfs_export_add(req, host, path, options=None, chown=None, export_path=None):
         else:
             bit_opt |= Export.bool_option[o]
 
-    if allow_chown and chown is not None:
+    if chown is not None:
+        if not allow_chown:
+            raise TargetdError(TargetdError.NO_SUPPORT, "Chown is disabled. Consult manual before enabling it.")
         items = chown.split(':')
         uid = items[0]
         gid = -1
