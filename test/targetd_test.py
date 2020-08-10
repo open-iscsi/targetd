@@ -696,34 +696,30 @@ class TestTargetd(unittest.TestCase):
     def test_gp_nfs_export_add(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export_target = "{}/{}".format(fs_pool.name, fs.name)
-            export = self._nfs_export_add("0.0.0.0/0", export_target, "insecure")
+            export = self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure")
             self._nfs_export_remove(export.host, export.path)
             self._fs_destroy(fs)
 
     def test_gp_nfs_export_add_chown_uid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export_target = "{}/{}".format(fs_pool.name, fs.name)
-            export = self._nfs_export_add("0.0.0.0/0", export_target, "insecure", "1000")
+            export = self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure", "1000")
             self._nfs_export_remove(export.host, export.path)
             self._fs_destroy(fs)
 
     def test_gp_nfs_export_add_chown_uid_gid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export_target = "{}/{}".format(fs_pool.name, fs.name)
-            export = self._nfs_export_add("0.0.0.0/0", export_target, "insecure", "1000:1000")
+            export = self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure", "1000:1000")
             self._nfs_export_remove(export.host, export.path)
             self._fs_destroy(fs)
 
     def test_ep_nfs_export_add_chown_invalid_uid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export_target = "{}/{}".format(fs_pool.name, fs.name)
             error_code = 0
             try:
-                self._nfs_export_add("0.0.0.0/0", export_target, "insecure", "testuser")
+                self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure", "testuser")
             except TargetdError as e:
                 error_code = e.error
             self.assertEqual(
