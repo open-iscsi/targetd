@@ -247,7 +247,7 @@ def nfs_export_add(req, host, path, options=None, chown=None, export_path=None):
                                "Wrong chown arguments: {}".format(e))
 
     Nfs.export_add(host, path, bit_opt, key_opt)
-    return {host: host, path: path}
+    return dict(host=host, path=path)
 
 
 def nfs_export_remove(req, host, path):
