@@ -350,8 +350,7 @@ class TestTargetd(unittest.TestCase):
         if st is None:
             return exports
         return [x for x in exports
-                if (st[0] == x.host and st[1] == x.path and
-                    st[2] == x.options)]
+                if (st[0] == x.host and st[1] == x.path)]
 
     def _nfs_export_add(self, host, path, options, chown=None):
 
@@ -364,14 +363,14 @@ class TestTargetd(unittest.TestCase):
         self.assertEqual(answer.path, path)
 
         result = TestTargetd._nfs_export_list(
-            (host, path, options))
+            (host, path))
 
         self.assertEqual(len(result), 1,
                          "Expected 1 found export that we just created!")
 
         return answer
 
-    def _nfs_export_remove(self, host, path, options):
+    def _nfs_export_remove(self, host, path):
         """
         Remove a NFS export
         :param host: the host associated with the export
@@ -384,7 +383,7 @@ class TestTargetd(unittest.TestCase):
                          path=path))
 
         expect_not_found = TestTargetd._nfs_export_list(
-            (host, path, options))
+            (host, path))
         self.assertEqual(len(expect_not_found), 0, "expect export gone!")
 
     def test_gp_pool_list(self):
@@ -699,14 +698,15 @@ class TestTargetd(unittest.TestCase):
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
             export_target = "{}/{}".format(fs_pool.name, fs.name)
             export = self._nfs_export_add("0.0.0.0/0", export_target, "insecure")
-            self._nfs_export_remove(export.host, export.path, "insecure")
+            self._nfs_export_remove(export.host, export.path)
+            self._fs_destroy(fs)
 
     def test_gp_nfs_export_add_chown_uid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
             export_target = "{}/{}".format(fs_pool.name, fs.name)
             export = self._nfs_export_add("0.0.0.0/0", export_target, "insecure", "1000")
-            self._nfs_export_remove(export.host, export.path, "insecure")
+            self._nfs_export_remove(export.host, export.path)
             self._fs_destroy(fs)
 
     def test_gp_nfs_export_add_chown_uid_gid(self):
@@ -714,7 +714,7 @@ class TestTargetd(unittest.TestCase):
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
             export_target = "{}/{}".format(fs_pool.name, fs.name)
             export = self._nfs_export_add("0.0.0.0/0", export_target, "insecure", "1000:1000")
-            self._nfs_export_remove(export.host, export.path, "insecure")
+            self._nfs_export_remove(export.host, export.path)
             self._fs_destroy(fs)
 
     def test_ep_nfs_export_add_chown_invalid_uid(self):
