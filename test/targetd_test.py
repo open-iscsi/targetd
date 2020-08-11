@@ -151,7 +151,7 @@ class TestConnect(unittest.TestCase):
 
         self.assertRaises(ConnectionError,
                           jsonrequest,
-                          method, params=None, data=data[0:len(data)-10])
+                          method, params=None, data=data[0:len(data) - 10])
 
     def test_gp_simple(self):
         # Basic good path
@@ -246,7 +246,7 @@ class TestTargetd(unittest.TestCase):
     def _vol_list(pool, name=None):
 
         vols = [TargetdObj.build(x)
-                    for x in jsonrequest("vol_list", dict(pool=pool.name))]
+                for x in jsonrequest("vol_list", dict(pool=pool.name))]
 
         if name:
             return [x for x in vols if x.name == name]
@@ -256,7 +256,7 @@ class TestTargetd(unittest.TestCase):
     def _fs_list(name=None):
 
         fs = [TargetdObj.build(x)
-                for x in jsonrequest("fs_list", dict())]
+              for x in jsonrequest("fs_list", dict())]
 
         if name:
             return [x for x in fs if x.name == name]
@@ -279,9 +279,8 @@ class TestTargetd(unittest.TestCase):
     @staticmethod
     def _initiator_list(standalone=False, wwid=None):
         initiators = [TargetdObj.build(x)
-                        for x in jsonrequest(
-                            "initiator_list",
-                            dict(standalone_only=str(standalone)))]
+                      for x in jsonrequest("initiator_list",
+                                           dict(standalone_only=str(standalone)))]
         if wwid:
             return [x for x in initiators if x.init_id == wwid]
         return initiators
@@ -294,13 +293,13 @@ class TestTargetd(unittest.TestCase):
         :return: list of exports
         """
         exports = [TargetdObj.build(x)
-                    for x in jsonrequest("export_list")]
+                   for x in jsonrequest("export_list")]
 
         if st is None:
             return exports
         return [x for x in exports
-                 if (st[0] == x.pool and st[1] == x.vol_name and
-                        st[2] == x.initiator_wwn and st[3] == x.lun)]
+                if (st[0] == x.pool and st[1] == x.vol_name and
+                    st[2] == x.initiator_wwn and st[3] == x.lun)]
 
     def _export_create(self, pool, vol, initiator_wwn=None, lun=0):
 
@@ -321,7 +320,7 @@ class TestTargetd(unittest.TestCase):
 
         initiator = TestTargetd._initiator_list(wwid=initiator_wwn)
         self.assertEqual(len(initiator), 1,
-                             "Expected 1 found for initiator list")
+                         "Expected 1 found for initiator list")
 
         return result[0]
 
@@ -337,6 +336,55 @@ class TestTargetd(unittest.TestCase):
         initiator = TestTargetd._initiator_list(wwid=export.initiator_wwn)
         self.assertEqual(len(initiator), 0,
                          "Expected 1 found for initiator list")
+
+    @staticmethod
+    def _nfs_export_list(st=None):
+        """
+        Retrieve NFS export list or constrain to single item.
+        :param st: search_tuple (host, path, options)
+        :return: list of nfs exports
+        """
+        exports = [TargetdObj.build(x)
+                   for x in jsonrequest("nfs_export_list")]
+
+        if st is None:
+            return exports
+        return [x for x in exports
+                if (st[0] == x.host and st[1] == x.path)]
+
+    def _nfs_export_add(self, host, path, options, chown=None):
+
+        answer = TargetdObj.build(jsonrequest(
+            "nfs_export_add",
+            dict(
+                host=host, path=path, options=options, chown=chown)))
+
+        self.assertEqual(answer.host, host)
+        self.assertEqual(answer.path, path)
+
+        result = TestTargetd._nfs_export_list(
+            (host, path))
+
+        self.assertEqual(len(result), 1,
+                         "Expected 1 found export that we just created!")
+
+        return answer
+
+    def _nfs_export_remove(self, host, path):
+        """
+        Remove a NFS export
+        :param host: the host associated with the export
+        :param path: the path associated with the export
+        :param options: the original options used while creating the export
+        :return: None
+        """
+        jsonrequest("nfs_export_remove",
+                    dict(host=host,
+                         path=path))
+
+        expect_not_found = TestTargetd._nfs_export_list(
+            (host, path))
+        self.assertEqual(len(expect_not_found), 0, "expect export gone!")
 
     def test_gp_pool_list(self):
         p = TestTargetd._pools()
@@ -524,7 +572,6 @@ class TestTargetd(unittest.TestCase):
                              fs_pool)
             self._fs_destroy(fs)
 
-
     def test_gp_fs_snapshot(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
@@ -574,7 +621,7 @@ class TestTargetd(unittest.TestCase):
             jsonrequest(
                 "vol_create",
                 dict(pool=rs(length=20), name="wont_create",
-                     size=1024*1024*100))
+                     size=1024 * 1024 * 100))
         except TargetdError as e:
             error_code = e.error
 
@@ -586,7 +633,7 @@ class TestTargetd(unittest.TestCase):
             jsonrequest(
                 "fs_create",
                 dict(pool_name=rs(length=10), name="whatever",
-                     size_bytes=1024*1024*100))
+                     size_bytes=1024 * 1024 * 100))
         except TargetdError as e:
             error_code = e.error
 
@@ -644,6 +691,41 @@ class TestTargetd(unittest.TestCase):
             clone = TestTargetd._fs_clone(fs, rs(length=10) + "_clone", ss.uuid)
             self._fs_destroy(clone)
             self._fs_snapshot_delete(fs, ss)
+            self._fs_destroy(fs)
+
+    def test_gp_nfs_export_add(self):
+        for fs_pool in TestTargetd._fs_pools():
+            fs = TestTargetd._fs_create(fs_pool, rs(length=10))
+            export = self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure")
+            self._nfs_export_remove(export.host, export.path)
+            self._fs_destroy(fs)
+
+    def test_gp_nfs_export_add_chown_uid(self):
+        for fs_pool in TestTargetd._fs_pools():
+            fs = TestTargetd._fs_create(fs_pool, rs(length=10))
+            export = self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure", "1000")
+            self._nfs_export_remove(export.host, export.path)
+            self._fs_destroy(fs)
+
+    def test_gp_nfs_export_add_chown_uid_gid(self):
+        for fs_pool in TestTargetd._fs_pools():
+            fs = TestTargetd._fs_create(fs_pool, rs(length=10))
+            export = self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure", "1000:1000")
+            self._nfs_export_remove(export.host, export.path)
+            self._fs_destroy(fs)
+
+    def test_ep_nfs_export_add_chown_invalid_uid(self):
+        for fs_pool in TestTargetd._fs_pools():
+            fs = TestTargetd._fs_create(fs_pool, rs(length=10))
+            error_code = 0
+            try:
+                self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure", "testuser")
+            except TargetdError as e:
+                error_code = e.error
+            self.assertEqual(
+                error_code, TargetdError.INVALID_ARGUMENT,
+                "nfs_export_add expecting INVALID_ARGUMENT when trying to use uid"
+                " as non numerical")
             self._fs_destroy(fs)
 
     def tearDown(self):

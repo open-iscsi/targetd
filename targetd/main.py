@@ -52,7 +52,8 @@ default_config = dict(
     ssl=False,
     ssl_cert="/etc/target/targetd_cert.pem",
     ssl_key="/etc/target/targetd_key.pem",
-    portal_addresses=["0.0.0.0"]
+    portal_addresses=["0.0.0.0"],
+    allow_chown=False
 )
 
 config = {}
