@@ -438,6 +438,7 @@ class TestTargetd(unittest.TestCase):
             # Check search for specific is working
             export = TestTargetd._export_list(
                 (e.pool, e.vol_name, e.initiator_wwn, e.lun))
+            self.assertEqual(len(export), 1, "expect to find existing export")
 
         if len(exports) == 0:
             for block_pool in self._block_pools():
