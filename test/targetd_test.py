@@ -375,7 +375,6 @@ class TestTargetd(unittest.TestCase):
         Remove a NFS export
         :param host: the host associated with the export
         :param path: the path associated with the export
-        :param options: the original options used while creating the export
         :return: None
         """
         jsonrequest("nfs_export_remove",
