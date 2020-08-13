@@ -205,7 +205,7 @@ class TestTargetd(unittest.TestCase):
         jsonrequest("fs_clone", args)
         return TestTargetd._fs_list(dest_fs_name)[0]
 
-    def _fs_snapshot(self, fs, dest_ss_name, snapshot_id=""):
+    def _fs_snapshot(self, fs, dest_ss_name):
         args = dict(fs_uuid=fs.uuid, dest_ss_name=dest_ss_name)
 
         # Make sure time stamp makes sense and is reasonably close,
