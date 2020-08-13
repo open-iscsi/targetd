@@ -519,7 +519,7 @@ class TestTargetd(unittest.TestCase):
 
             error_code = 0
             try:
-                dupe = self._fs_create(fs_pool, name)
+                self._fs_create(fs_pool, name)
             except TargetdError as e:
                 error_code = e.error
 
@@ -606,7 +606,7 @@ class TestTargetd(unittest.TestCase):
 
             error_code = 0
             try:
-                dupe = self._fs_snapshot(fs, ss_name)
+                self._fs_snapshot(fs, ss_name)
             except TargetdError as e:
                 error_code = e.error
 
