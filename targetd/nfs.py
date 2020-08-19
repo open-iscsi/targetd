@@ -15,6 +15,7 @@ import os
 import os.path
 import re
 import shlex
+import logging as log
 
 from targetd.utils import invoke
 
@@ -200,6 +201,7 @@ class Export(object):
                     rc.append(Export('*', path))
 
         except Exception as e:
+            log.error("parse_export: %s" % str(e))
             return None
 
         return rc
