@@ -9,6 +9,7 @@ from targetd.utils import TargetdError
 from os import getenv
 from requests.exceptions import ConnectionError
 from test import testlib
+from targetd import nfs
 
 
 def jsonrequest(method, params=None, data=None):
@@ -60,6 +61,49 @@ class TargetdObj(object):
         for k, v in self.rpc.items():
             s += "%s: %s " % (k, v)
         return s
+
+
+class NoDaemon(unittest.TestCase):
+
+    def test_gp_nfs_export_parse(self):
+        # sample taken from "man 5 exports"
+        sample = "# sample /etc/exports file\n" \
+               "/           master(rw) trusty(rw,no_root_squash)\n" \
+               "/projects   proj*.local.domain(rw)\n" \
+               "/usr        *.local.domain(ro) @trusted(rw)\n" \
+               "/home/joe   pc001(rw,all_squash,anonuid=150,anongid=100)\n" \
+               "/pub        *(ro,insecure,all_squash)\n" \
+               "/srv/www    -sync,rw server @trusted @external(ro)\n" \
+               "/foo        2001:db8:9:e54::/64(rw) 192.0.2.0/24(rw)\n" \
+               "/build      buildhost[0-9].local.domain(rw)\n"
+
+        with open("/tmp/sample", "w") as f:
+            f.write(sample)
+
+        result = nfs.Export.parse_exports_file("/tmp/sample")
+        self.assertGreater(len(result), 1)
+
+    def test_ep_export(self):
+        self.assertRaises(ValueError, nfs.Export,
+                          "localhost", "/mnt/foo",
+                          nfs.Export.RW | nfs.Export.RO)
+        self.assertRaises(ValueError, nfs.Export,
+                          "localhost", "/mnt/foo",
+                          nfs.Export.INSECURE | nfs.Export.SECURE)
+        self.assertRaises(ValueError, nfs.Export,
+                          "localhost", "/mnt/foo",
+                          nfs.Export.SYNC | nfs.Export.ASYNC)
+        self.assertRaises(ValueError, nfs.Export,
+                          "localhost", "/mnt/foo",
+                          nfs.Export.HIDE | nfs.Export.NOHIDE)
+
+    def test_gp_export_compare(self):
+        i1 = nfs.Export("localhost", "/mnt/foo", nfs.Export.RW)
+        i2 = nfs.Export("localhost", "/mnt/foo", nfs.Export.RO)
+        self.assertTrue(i1 == i2)
+
+        i3 = nfs.Export("127.0.0.1", "/mnt/foo", nfs.Export.RO)
+        self.assertTrue(i2 != i3)
 
 
 class TestConnect(unittest.TestCase):
