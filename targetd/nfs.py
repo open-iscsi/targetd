@@ -40,6 +40,16 @@ class Export(object):
     INSECURE = 0x00008000
     NO_ALL_SQUASH = 0x00010000
 
+    _conflicting = (((RW | RO), "Both RO & RW set"),
+                    ((INSECURE | SECURE), "Both INSECURE & SECURE set"),
+                    ((SYNC | ASYNC), "Both SYNC & ASYNC set"),
+                    ((HIDE | NOHIDE), "Both HIDE & NOHIDE set"),
+                    ((WDELAY | NO_WDELAY), "Both WDELAY & NO_WDELAY set"),
+                    ((ROOT_SQUASH | NO_ROOT_SQUASH),
+                     "Only one option of ROOT_SQUASH, NO_ROOT_SQUASH, "
+                     "can be specified")
+                    )
+
     bool_option = {
         "secure": SECURE,
         "rw": RW,
@@ -84,41 +94,10 @@ class Export(object):
         return rc
 
     @staticmethod
-    def _bc(int_type):
-        """
-        Bit count.
-
-        returns the number of bits set.
-        """
-        count = 0
-        while int_type:
-            int_type &= int_type - 1
-            count += 1
-        return count
-
-    @staticmethod
     def _validate_options(options):
-
-        if Export._bc(((Export.RW | Export.RO) & options)) == 2:
-            raise ValueError("Both RO & RW set")
-
-        if Export._bc(((Export.INSECURE | Export.SECURE) & options)) == 2:
-            raise ValueError("Both INSECURE & SECURE set")
-
-        if Export._bc(((Export.SYNC | Export.ASYNC) & options)) == 2:
-            raise ValueError("Both SYNC & ASYNC set")
-
-        if Export._bc(((Export.HIDE | Export.NOHIDE) & options)) == 2:
-            raise ValueError("Both HIDE & NOHIDE set")
-
-        if Export._bc(((Export.WDELAY | Export.NO_WDELAY) & options)) == 2:
-            raise ValueError("Both WDELAY & NO_WDELAY set")
-
-        if Export._bc(
-            ((Export.ROOT_SQUASH | Export.NO_ROOT_SQUASH) & options)) > 1:
-            raise ValueError("Only one option of ROOT_SQUASH, NO_ROOT_SQUASH, "
-                             "can be specified")
-
+        for e in Export._conflicting:
+            if (options & (e[0])) == e[0]:
+                raise ValueError(e[1])
         return options
 
     @staticmethod
