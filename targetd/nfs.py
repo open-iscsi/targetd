@@ -84,16 +84,6 @@ class Export(object):
     octal_nums_regex = r"""\\([0-7][0-7][0-7])"""
 
     @staticmethod
-    def _join(sep, *strings_to_join):
-        rc = ''
-        for s in strings_to_join:
-            if len(s):
-                if len(rc):
-                    rc += sep
-                rc += s
-        return rc
-
-    @staticmethod
     def _validate_options(options):
         for e in Export._conflicting:
             if (options & (e[0])) == e[0]:
