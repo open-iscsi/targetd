@@ -125,7 +125,7 @@ class Export(object):
         self.key_value_options = Export._validate_key_pairs(key_value_options)
 
     @staticmethod
-    def parse_opt(options_string):
+    def _parse_opt(options_string):
         bits = 0
         pairs = {}
 
@@ -140,6 +140,41 @@ class Export(object):
                     bits |= Export.bool_option[o]
 
         return bits, pairs
+
+    @staticmethod
+    def _override(combined, test, opt_a, opt_b):
+        if test & opt_a:
+            combined &= ~opt_b
+
+        if test & opt_b:
+            combined &= ~opt_a
+        return combined
+
+    @staticmethod
+    def parse_opt(global_options, specific_options=None):
+        gbit, gpairs = Export._parse_opt(global_options)
+
+        if specific_options is None:
+            return gbit, gpairs
+
+        sbit, spairs = Export._parse_opt(specific_options)
+
+        Export._validate_options(gbit)
+        Export._validate_options(sbit)
+
+        # Remove global options which are overridden by specific
+        culled = gbit | sbit
+        culled = Export._override(culled, sbit, Export.RO, Export.RW)
+        culled = Export._override(culled, sbit, Export.INSECURE, Export.SECURE)
+        culled = Export._override(culled, sbit, Export.SYNC, Export.ASYNC)
+        culled = Export._override(culled, sbit, Export.HIDE, Export.NOHIDE)
+        culled = Export._override(culled, sbit, Export.WDELAY, Export.NO_WDELAY)
+        culled = Export._override(culled, sbit,
+                                  Export.ROOT_SQUASH,
+                                  Export.NO_ROOT_SQUASH)
+
+        gpairs.update(spairs)
+        return culled, gpairs
 
     @staticmethod
     def parse_export(tokens):
@@ -173,9 +208,7 @@ class Export(object):
 
                         rc.append(
                             Export(host, path,
-                                   *Export.parse_opt(
-                                       Export._join(',', global_options,
-                                                    options))))
+                                   *Export.parse_opt(global_options, options)))
                 else:
                     rc.append(Export('*', path))
 
