@@ -183,8 +183,6 @@ class Export(object):
         try:
             global_options = ''
             options = ''
-            path = ''
-
             if len(tokens) >= 1:
                 path = tokens[0]
 
@@ -330,7 +328,6 @@ class Nfs(object):
         """
         Return list of exports
         """
-        rc = []
         ec, out, error = invoke([Nfs.CMD, '-v'])
         rc = Export.parse_exportfs_output(out)
         return rc
