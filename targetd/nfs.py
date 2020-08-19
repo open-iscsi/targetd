@@ -295,8 +295,8 @@ class Nfs(object):
     """
     CMD = 'exportfs'
     EXPORT_FILE = 'targetd.exports'
-    EXPORT_FS_CONFIG_DIR = '/etc/exports.d'
-    MAIN_EXPORT_FILE = '/etc/exports'
+    EXPORT_FS_CONFIG_DIR = os.getenv("TARGETD_NFS_EXPORT_DIR", '/etc/exports.d')
+    MAIN_EXPORT_FILE = os.getenv("TARGETD_NFS_EXPORT", '/etc/exports')
 
     def __init__(self):
         pass
