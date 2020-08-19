@@ -191,7 +191,7 @@ class Export(object):
                 if len(tokens) > 1:
                     for t in tokens[1:]:
 
-                        #Handle global options
+                        # Handle global options
                         if t[0] == '-' and not global_options:
                             global_options = t[1:]
                             continue
