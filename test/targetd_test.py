@@ -747,7 +747,8 @@ class TestTargetd(unittest.TestCase):
     def test_gp_nfs_export_add_chown_uid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export = self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure", "1000")
+            export = self._nfs_export_add("0.0.0.0/0", fs.full_path,
+                                          ["insecure", "ro"], "1000")
             self._nfs_export_remove(export.host, export.path)
             self._fs_destroy(fs)
 
