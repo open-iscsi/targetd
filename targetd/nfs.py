@@ -259,7 +259,8 @@ class Export(object):
 
     @staticmethod
     def _chr_encode(s):
-        # Replace octal values
+        # Replace octal values, the export path can contain \nnn in the
+        # export name.
         p = re.compile(Export.octal_nums_regex)
 
         for m in re.finditer(p, s):
