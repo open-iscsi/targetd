@@ -9,6 +9,7 @@ from targetd.utils import TargetdError
 from os import getenv
 from requests.exceptions import ConnectionError
 from test import testlib
+from targetd import nfs
 
 
 def jsonrequest(method, params=None, data=None):
@@ -60,6 +61,49 @@ class TargetdObj(object):
         for k, v in self.rpc.items():
             s += "%s: %s " % (k, v)
         return s
+
+
+class NoDaemon(unittest.TestCase):
+
+    def test_gp_nfs_export_parse(self):
+        # sample taken from "man 5 exports"
+        sample = "# sample /etc/exports file\n" \
+               "/           master(rw) trusty(rw,no_root_squash)\n" \
+               "/projects   proj*.local.domain(rw)\n" \
+               "/usr        *.local.domain(ro) @trusted(rw)\n" \
+               "/home/joe   pc001(rw,all_squash,anonuid=150,anongid=100)\n" \
+               "/pub        *(ro,insecure,all_squash)\n" \
+               "/srv/www    -sync,rw server @trusted @external(ro)\n" \
+               "/foo        2001:db8:9:e54::/64(rw) 192.0.2.0/24(rw)\n" \
+               "/build      buildhost[0-9].local.domain(rw)\n"
+
+        with open("/tmp/sample", "w") as f:
+            f.write(sample)
+
+        result = nfs.Export.parse_exports_file("/tmp/sample")
+        self.assertGreater(len(result), 1)
+
+    def test_ep_export(self):
+        self.assertRaises(ValueError, nfs.Export,
+                          "localhost", "/mnt/foo",
+                          nfs.Export.RW | nfs.Export.RO)
+        self.assertRaises(ValueError, nfs.Export,
+                          "localhost", "/mnt/foo",
+                          nfs.Export.INSECURE | nfs.Export.SECURE)
+        self.assertRaises(ValueError, nfs.Export,
+                          "localhost", "/mnt/foo",
+                          nfs.Export.SYNC | nfs.Export.ASYNC)
+        self.assertRaises(ValueError, nfs.Export,
+                          "localhost", "/mnt/foo",
+                          nfs.Export.HIDE | nfs.Export.NOHIDE)
+
+    def test_gp_export_compare(self):
+        i1 = nfs.Export("localhost", "/mnt/foo", nfs.Export.RW)
+        i2 = nfs.Export("localhost", "/mnt/foo", nfs.Export.RO)
+        self.assertTrue(i1 == i2)
+
+        i3 = nfs.Export("127.0.0.1", "/mnt/foo", nfs.Export.RO)
+        self.assertTrue(i2 != i3)
 
 
 class TestConnect(unittest.TestCase):
@@ -205,7 +249,7 @@ class TestTargetd(unittest.TestCase):
         jsonrequest("fs_clone", args)
         return TestTargetd._fs_list(dest_fs_name)[0]
 
-    def _fs_snapshot(self, fs, dest_ss_name, snapshot_id=""):
+    def _fs_snapshot(self, fs, dest_ss_name):
         args = dict(fs_uuid=fs.uuid, dest_ss_name=dest_ss_name)
 
         # Make sure time stamp makes sense and is reasonably close,
@@ -375,7 +419,6 @@ class TestTargetd(unittest.TestCase):
         Remove a NFS export
         :param host: the host associated with the export
         :param path: the path associated with the export
-        :param options: the original options used while creating the export
         :return: None
         """
         jsonrequest("nfs_export_remove",
@@ -439,6 +482,7 @@ class TestTargetd(unittest.TestCase):
             # Check search for specific is working
             export = TestTargetd._export_list(
                 (e.pool, e.vol_name, e.initiator_wwn, e.lun))
+            self.assertEqual(len(export), 1, "expect to find existing export")
 
         if len(exports) == 0:
             for block_pool in self._block_pools():
@@ -519,7 +563,7 @@ class TestTargetd(unittest.TestCase):
 
             error_code = 0
             try:
-                dupe = self._fs_create(fs_pool, name)
+                self._fs_create(fs_pool, name)
             except TargetdError as e:
                 error_code = e.error
 
@@ -606,7 +650,7 @@ class TestTargetd(unittest.TestCase):
 
             error_code = 0
             try:
-                dupe = self._fs_snapshot(fs, ss_name)
+                self._fs_snapshot(fs, ss_name)
             except TargetdError as e:
                 error_code = e.error
 
@@ -703,8 +747,25 @@ class TestTargetd(unittest.TestCase):
     def test_gp_nfs_export_add_chown_uid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export = self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure", "1000")
+            export = self._nfs_export_add("0.0.0.0/0", fs.full_path,
+                                          ["insecure", "ro"], "1000")
             self._nfs_export_remove(export.host, export.path)
+            self._fs_destroy(fs)
+
+    def test_ep_nfs_export_invalid_options(self):
+        for fs_pool in TestTargetd._fs_pools():
+            fs = TestTargetd._fs_create(fs_pool, rs(length=10))
+
+            error_code = 0
+            try:
+                self._nfs_export_add("0.0.0.0/0", fs.full_path,
+                                     ["insecure", "secure"], "1000")
+            except TargetdError as e:
+                error_code = e.error
+
+            self.assertEqual(
+                error_code, TargetdError.INVALID_ARGUMENT,
+                "Expecting error on conflicting options")
             self._fs_destroy(fs)
 
     def test_gp_nfs_export_add_chown_uid_gid(self):

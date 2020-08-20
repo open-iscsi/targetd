@@ -15,6 +15,7 @@ import os
 import os.path
 import re
 import shlex
+import logging as log
 
 from targetd.utils import invoke
 
@@ -38,6 +39,16 @@ class Export(object):
     HIDE = 0x00004000
     INSECURE = 0x00008000
     NO_ALL_SQUASH = 0x00010000
+
+    _conflicting = (((RW | RO), "Both RO & RW set"),
+                    ((INSECURE | SECURE), "Both INSECURE & SECURE set"),
+                    ((SYNC | ASYNC), "Both SYNC & ASYNC set"),
+                    ((HIDE | NOHIDE), "Both HIDE & NOHIDE set"),
+                    ((WDELAY | NO_WDELAY), "Both WDELAY & NO_WDELAY set"),
+                    ((ROOT_SQUASH | NO_ROOT_SQUASH),
+                     "Only one option of ROOT_SQUASH, NO_ROOT_SQUASH, "
+                     "can be specified")
+                    )
 
     bool_option = {
         "secure": SECURE,
@@ -73,51 +84,10 @@ class Export(object):
     octal_nums_regex = r"""\\([0-7][0-7][0-7])"""
 
     @staticmethod
-    def _join(sep, *strings_to_join):
-        rc = ''
-        for s in strings_to_join:
-            if len(s):
-                if len(rc):
-                    rc += sep
-                rc += s
-        return rc
-
-    @staticmethod
-    def _bc(int_type):
-        """
-        Bit count.
-
-        returns the number of bits set.
-        """
-        count = 0
-        while int_type:
-            int_type &= int_type - 1
-            count += 1
-        return count
-
-    @staticmethod
     def _validate_options(options):
-
-        if Export._bc(((Export.RW | Export.RO) & options)) == 2:
-            raise ValueError("Both RO & RW set")
-
-        if Export._bc(((Export.INSECURE | Export.SECURE) & options)) == 2:
-            raise ValueError("Both INSECURE & SECURE set")
-
-        if Export._bc(((Export.SYNC | Export.ASYNC) & options)) == 2:
-            raise ValueError("Both SYNC & ASYNC set")
-
-        if Export._bc(((Export.HIDE | Export.NOHIDE) & options)) == 2:
-            raise ValueError("Both HIDE & NOHIDE set")
-
-        if Export._bc(((Export.WDELAY | Export.NO_WDELAY) & options)) == 2:
-            raise ValueError("Both WDELAY & NO_WDELAY set")
-
-        if Export._bc(
-            ((Export.ROOT_SQUASH | Export.NO_ROOT_SQUASH) & options)) > 1:
-            raise ValueError("Only one option of ROOT_SQUASH, NO_ROOT_SQUASH, "
-                             "can be specified")
-
+        for e in Export._conflicting:
+            if (options & (e[0])) == e[0]:
+                raise ValueError(e[1])
         return options
 
     @staticmethod
@@ -145,7 +115,7 @@ class Export(object):
         self.key_value_options = Export._validate_key_pairs(key_value_options)
 
     @staticmethod
-    def parse_opt(options_string):
+    def _parse_opt(options_string):
         bits = 0
         pairs = {}
 
@@ -162,21 +132,54 @@ class Export(object):
         return bits, pairs
 
     @staticmethod
+    def _override(combined, test, opt_a, opt_b):
+        if test & opt_a:
+            combined &= ~opt_b
+
+        if test & opt_b:
+            combined &= ~opt_a
+        return combined
+
+    @staticmethod
+    def parse_opt(global_options, specific_options=None):
+        gbit, gpairs = Export._parse_opt(global_options)
+
+        if specific_options is None:
+            return gbit, gpairs
+
+        sbit, spairs = Export._parse_opt(specific_options)
+
+        Export._validate_options(gbit)
+        Export._validate_options(sbit)
+
+        # Remove global options which are overridden by specific
+        culled = gbit | sbit
+        culled = Export._override(culled, sbit, Export.RO, Export.RW)
+        culled = Export._override(culled, sbit, Export.INSECURE, Export.SECURE)
+        culled = Export._override(culled, sbit, Export.SYNC, Export.ASYNC)
+        culled = Export._override(culled, sbit, Export.HIDE, Export.NOHIDE)
+        culled = Export._override(culled, sbit, Export.WDELAY, Export.NO_WDELAY)
+        culled = Export._override(culled, sbit,
+                                  Export.ROOT_SQUASH,
+                                  Export.NO_ROOT_SQUASH)
+
+        gpairs.update(spairs)
+        return culled, gpairs
+
+    @staticmethod
     def parse_export(tokens):
         rc = []
 
         try:
             global_options = ''
             options = ''
-            path = ''
-
             if len(tokens) >= 1:
                 path = tokens[0]
 
                 if len(tokens) > 1:
                     for t in tokens[1:]:
 
-                        #Handle global options
+                        # Handle global options
                         if t[0] == '-' and not global_options:
                             global_options = t[1:]
                             continue
@@ -193,13 +196,12 @@ class Export(object):
 
                         rc.append(
                             Export(host, path,
-                                   *Export.parse_opt(
-                                       Export._join(',', global_options,
-                                                    options))))
+                                   *Export.parse_opt(global_options, options)))
                 else:
                     rc.append(Export('*', path))
 
         except Exception as e:
+            log.error("parse_export: %s" % str(e))
             return None
 
         return rc
@@ -226,14 +228,6 @@ class Export(object):
             rc.append(
                 Export(m.group(2), m.group(1), *Export.parse_opt(m.group(3))))
         return rc
-
-    @staticmethod
-    def _append(s, a):
-        if len(s):
-            s = s + "," + a
-        else:
-            s = a
-        return s
 
     def options_list(self):
         rc = []
@@ -265,7 +259,8 @@ class Export(object):
 
     @staticmethod
     def _chr_encode(s):
-        # Replace octal values
+        # Replace octal values, the export path can contain \nnn in the
+        # export name.
         p = re.compile(Export.octal_nums_regex)
 
         for m in re.finditer(p, s):
@@ -283,11 +278,8 @@ class Nfs(object):
     """
     CMD = 'exportfs'
     EXPORT_FILE = 'targetd.exports'
-    EXPORT_FS_CONFIG_DIR = '/etc/exports.d'
-    MAIN_EXPORT_FILE = '/etc/exports'
-
-    def __init__(self):
-        pass
+    EXPORT_FS_CONFIG_DIR = os.getenv("TARGETD_NFS_EXPORT_DIR", '/etc/exports.d')
+    MAIN_EXPORT_FILE = os.getenv("TARGETD_NFS_EXPORT", '/etc/exports')
 
     @staticmethod
     def security_options():
@@ -316,7 +308,6 @@ class Nfs(object):
         """
         Return list of exports
         """
-        rc = []
         ec, out, error = invoke([Nfs.CMD, '-v'])
         rc = Export.parse_exportfs_output(out)
         return rc

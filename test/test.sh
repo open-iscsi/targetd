@@ -26,13 +26,16 @@ clean_up ()
 # their test environment.
 SETUP=0
 TEARDOWN=0
+UNIT_ONLY=0
 if [ $# -eq 1 ]; then
     if [ $1 = "setup" ]; then
         SETUP=1
     elif [ $1 = "teardown" ]; then
         TEARDOWN=1
+    elif [ $1 = "unit_only" ]; then
+        UNIT_ONLY=1
     else
-        echo "test.sh [setup|teardown] or no args to run tests"
+        echo "test.sh [setup|teardown|unit_only] or no args to run tests"
         exit 1
     fi
 fi
@@ -82,12 +85,17 @@ zpool create zfs_targetd $loop3 || clean_up 1
 zfs create zfs_targetd/block_pool || clean_up 1
 zfs create zfs_targetd/fs_pool || clean_up 1
 
+# setup a sample nfs export file for parsing
+cp test/targetd_test_parse /tmp/. || clean_up 1
+export BASE_NFS_MOUNT="/mnt/nfs_mounts"
+
 if [ $SETUP -eq 1  ]; then
     exit 0
 fi
 
 export PYTHONPATH=$(pwd)
-python3-coverage run scripts/targetd > /tmp/targetd.log 2>&1 &
+export TARGETD_NFS_EXPORT="/tmp/targetd_test_parse"
+python3-coverage run --omit=/usr/lib/python3/* scripts/targetd > /tmp/targetd.log 2>&1 &
 
 sleep 5 || clean_up 1
 echo "Dumping targetd output ..."
@@ -100,6 +108,11 @@ if [ $rc -ne 0 ]; then
     echo "Dumping targetd output on unit test error ..."
     cat /tmp/targetd.log
     clean_up $rc
+fi
+
+# For local unit test development
+if [ $UNIT_ONLY -eq 1 ]; then
+    clean_up 0
 fi
 
 # get/build/run libstoragemgmt tests
