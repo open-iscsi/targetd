@@ -247,8 +247,10 @@ def nfs_export_add(req, host, path, options=None, chown=None, export_path=None):
         except ValueError as e:
             raise TargetdError(TargetdError.INVALID_ARGUMENT,
                                "Wrong chown arguments: {}".format(e))
-
-    Nfs.export_add(host, path, bit_opt, key_opt)
+    try:
+        Nfs.export_add(host, path, bit_opt, key_opt)
+    except ValueError as e:
+        raise TargetdError(TargetdError.INVALID_ARGUMENT, "{}".format(e))
     return dict(host=host, path=path)
 
 
