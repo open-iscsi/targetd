@@ -1,0 +1,17 @@
+# targetd test /etc/exports file
+/mnt/nfs_mounts/root       master(rw) trusty(rw,no_root_squash)
+/mnt/nfs_mounts/projects   proj*.local.domain(rw)
+/mnt/nfs_mounts/usr        *.local.domain(ro) @trusted(rw)
+/mnt/nfs_mounts/joe        pc001(rw,all_squash,anonuid=150,anongid=100)
+/mnt/nfs_mounts/pub        *(ro,insecure,all_squash)
+/mnt/nfs_mounts/srv/www    -sync,rw server @trusted @external(ro)
+/mnt/nfs_mounts/foo        2001:db8:9:e54::/64(rw) 192.0.2.0/24(rw)
+/mnt/nfs_mounts/build      buildhost[0-9].local.domain(rw)
+
+# Test mounts with spaces
+"/mnt/nfs_mounts/name with space"
+
+"/mnt/nfs_mounts/whatever"  (ro)
+
+# Octal characters in name 'somename +,'
+"/mnt/nfs_mounts/somename\040\053\054" *(rw)
