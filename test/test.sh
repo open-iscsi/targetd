@@ -26,13 +26,16 @@ clean_up ()
 # their test environment.
 SETUP=0
 TEARDOWN=0
+UNIT_ONLY=0
 if [ $# -eq 1 ]; then
     if [ $1 = "setup" ]; then
         SETUP=1
     elif [ $1 = "teardown" ]; then
         TEARDOWN=1
+    elif [ $1 = "unit_only" ]; then
+        UNIT_ONLY=1
     else
-        echo "test.sh [setup|teardown] or no args to run tests"
+        echo "test.sh [setup|teardown|unit_only] or no args to run tests"
         exit 1
     fi
 fi
@@ -100,6 +103,11 @@ if [ $rc -ne 0 ]; then
     echo "Dumping targetd output on unit test error ..."
     cat /tmp/targetd.log
     clean_up $rc
+fi
+
+# For local unit test development
+if [ $UNIT_ONLY -eq 1 ]; then
+    clean_up 0
 fi
 
 # get/build/run libstoragemgmt tests
