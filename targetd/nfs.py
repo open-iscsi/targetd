@@ -280,9 +280,6 @@ class Nfs(object):
     EXPORT_FS_CONFIG_DIR = os.getenv("TARGETD_NFS_EXPORT_DIR", '/etc/exports.d')
     MAIN_EXPORT_FILE = os.getenv("TARGETD_NFS_EXPORT", '/etc/exports')
 
-    def __init__(self):
-        pass
-
     @staticmethod
     def security_options():
         return "sys", "krb5", "krb5i", "krb5p"
