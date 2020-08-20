@@ -95,7 +95,7 @@ fi
 
 export PYTHONPATH=$(pwd)
 export TARGETD_NFS_EXPORT="/tmp/targetd_test_parse"
-python3-coverage run scripts/targetd > /tmp/targetd.log 2>&1 &
+python3-coverage run --omit=/usr/lib/python3/* scripts/targetd > /tmp/targetd.log 2>&1 &
 
 sleep 5 || clean_up 1
 echo "Dumping targetd output ..."
