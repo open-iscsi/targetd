@@ -229,14 +229,6 @@ class Export(object):
                 Export(m.group(2), m.group(1), *Export.parse_opt(m.group(3))))
         return rc
 
-    @staticmethod
-    def _append(s, a):
-        if len(s):
-            s = s + "," + a
-        else:
-            s = a
-        return s
-
     def options_list(self):
         rc = []
         for k, v in self.bool_option.items():
