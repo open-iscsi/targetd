@@ -752,6 +752,22 @@ class TestTargetd(unittest.TestCase):
             self._nfs_export_remove(export.host, export.path)
             self._fs_destroy(fs)
 
+    def test_ep_nfs_export_invalid_options(self):
+        for fs_pool in TestTargetd._fs_pools():
+            fs = TestTargetd._fs_create(fs_pool, rs(length=10))
+
+            error_code = 0
+            try:
+                self._nfs_export_add("0.0.0.0/0", fs.full_path,
+                                     ["insecure", "secure"], "1000")
+            except TargetdError as e:
+                error_code = e.error
+
+            self.assertEqual(
+                error_code, TargetdError.INVALID_ARGUMENT,
+                "Expecting error on conflicting options")
+            self._fs_destroy(fs)
+
     def test_gp_nfs_export_add_chown_uid_gid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
