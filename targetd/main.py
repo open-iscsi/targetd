@@ -95,6 +95,16 @@ class TargetHandler(BaseHTTPRequestHandler):
             error = (-1, "jsonrpc error")
             try:
                 content_len = int(self.headers.get('content-length'))
+
+                # Make sure we aren't being asked to read too much data.
+                # Since this happens after authentication this really should
+                # never happen for normal operation.
+                if content_len > (1024 * 128):
+                    log.error("client %s, content-length = %d rejecting!" %
+                              (self.client_address[0], content_len))
+                    self.send_error(413)
+                    return
+
                 req = json.loads(self.rfile.read(content_len).decode('utf-8'))
             except ValueError:
                 # see http://www.jsonrpc.org/specification for errcodes

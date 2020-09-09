@@ -201,6 +201,20 @@ class TestConnect(unittest.TestCase):
         # Basic good path
         jsonrequest("pool_list")
 
+    def test_ep_request_too_big(self):
+        request = rs(None, 1) * (1024 * 128)
+        error_code = 0
+        try:
+            jsonrequest(request)
+        except TargetdError as e:
+            error_code = e.error
+        except ConnectionError:
+            # Not sure why the service is responding with a RST when using
+            # ssl, works fine without ssl
+            error_code = 413
+
+        self.assertEqual(error_code, 413)
+
 
 class TestTargetd(unittest.TestCase):
 
