@@ -78,7 +78,7 @@ class TargetHandler(BaseHTTPRequestHandler):
             auth_bytes = self.headers.get("Authorization")[6:].encode('utf-8')
             auth_str = base64.b64decode(auth_bytes).decode('utf-8')
             in_user, in_pass = auth_str.split(":")
-        except Exception as e:
+        except Exception:
             log.error(traceback.format_exc())
             self.send_error(400)
             return
@@ -287,7 +287,6 @@ def handler(signum, frame):
 
 
 def main():
-    server = None
 
     signal.signal(signal.SIGINT, handler)
 
