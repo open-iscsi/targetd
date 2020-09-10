@@ -112,6 +112,7 @@ fi
 
 # For local unit test development
 if [ $UNIT_ONLY -eq 1 ]; then
+    cat /tmp/targetd.log
     clean_up 0
 fi
 

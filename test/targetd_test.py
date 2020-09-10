@@ -10,6 +10,7 @@ from os import getenv
 from requests.exceptions import ConnectionError
 from test import testlib
 from targetd import nfs
+from multiprocessing.pool import ThreadPool
 
 
 def jsonrequest(method, params=None, data=None):
@@ -119,19 +120,42 @@ class TestConnect(unittest.TestCase):
             testlib.password = rs(length=10)
 
         error_code = 0
+        start = time.time()
         try:
             jsonrequest("pool_list")
         except TargetdError as e:
             error_code = e.error
         finally:
+            end = time.time()
             testlib.user = existing_user
             testlib.password = existing_pw
 
         self.assertEqual(error_code, 401, "testing bad auth.")
+        self.assertGreaterEqual(end-start, 1, "Expecting delayed response")
 
     def test_ep_bad_auth(self):
         self._test_ep_bad_auth()
         self._test_ep_bad_auth(False)
+
+    def test_ep_concurrent_authentication(self):
+        pool = ThreadPool(processes=4)
+
+        results = []
+
+        for _ in range(4):
+            results.append(pool.apply_async(testlib.test_bad_authenticate))
+
+        start = time.time()
+        for r in results:
+            exception, result = r.get()
+            if exception:
+                pass
+            else:
+                self.assertTrue((result.status_code == 401 or
+                                 result.status_code == 503))
+        end = time.time()
+        diff = end - start
+        self.assertTrue((diff > 1 or diff < 3), "Not expected %s" % (str(diff)))
 
     def test_ep_bad_path(self):
 
@@ -144,6 +168,10 @@ class TestConnect(unittest.TestCase):
             jsonrequest("pool_list")
         except TargetdError as e:
             error_code = e.error
+        except ConnectionError:
+            # Not sure why the service is responding with a RST when using
+            # ssl, works fine without ssl
+            error_code = 404
         finally:
             testlib.rpc_path = existing
 

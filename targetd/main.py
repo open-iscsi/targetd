@@ -32,9 +32,12 @@ import itertools
 import socket
 import base64
 import ssl
+from socketserver import ThreadingMixIn
+import time
+from threading import Lock
 import traceback
 import logging as log
-from targetd.utils import TargetdError
+from targetd.utils import TargetdError, Pit, Tar
 import stat
 
 default_config_path = "/etc/target/targetd.yaml"
@@ -61,6 +64,12 @@ config = {}
 # Will be added to by fs/block.initialize()
 mapping = dict()
 
+# Used to serialize the work we actually do
+mutex = Lock()
+
+# Tarpit
+tar = Tar()
+
 
 class TargetHandler(BaseHTTPRequestHandler):
     def log_request(self, code='-', size='-'):
@@ -83,11 +92,23 @@ class TargetHandler(BaseHTTPRequestHandler):
             self.send_error(400)
             return
 
+        if tar.is_stuck(self.client_address[0]):
+            log.warning("Concurrent authentication attempts from %s" %
+                        self.client_address[0])
+            # This client already has a failed authentication attempt,
+            # immediately return error without trying new credentials.
+            self.send_error(503)
+            return
+
         if in_user != config['user'] or in_pass != config['password']:
-            self.send_error(401)
+            # Tarpit the bad authentication for a bit
+            with tar.pitted(self.client_address[0]):
+                time.sleep(2)
+                self.send_error(401)
             return
 
         if not self.path == "/targetrpc":
+            log.error("Invalid URL %s" % self.path)
             self.send_error(404)
             return
 
@@ -126,6 +147,8 @@ class TargetHandler(BaseHTTPRequestHandler):
                 error = (-32600, "not a valid jsonrpc-2.0 request")
                 raise
 
+            # Serialize the actual work to be done.
+            mutex.acquire()
             try:
                 if params:
                     result = mapping[method](self, **params)
@@ -147,6 +170,8 @@ class TargetHandler(BaseHTTPRequestHandler):
                 error = (-1, "%s: %s" % (type(e).__name__, e))
                 log.debug(traceback.format_exc())
                 raise
+            finally:
+                mutex.release()
 
             rpcdata = json.dumps(dict(result=result, id=id_num, jsonrpc="2.0"))
         except:
@@ -161,9 +186,11 @@ class TargetHandler(BaseHTTPRequestHandler):
             self.wfile.write(rpcdata.encode('utf-8'))
 
 
-class HTTPService(HTTPServer, object):
+class HTTPService(ThreadingMixIn, HTTPServer, object):
     """
-    Handle requests one at a time
+    Handle rpc requests concurrently, but process them sequentially by using a
+    mutex.  We do this so we hopefully don't block valid API users when some
+    one tries to brute force the password.
 
     Note: Many things we are calling into are not thread safe and/or cannot be
     done concurrently.  We will process things one at a time.
