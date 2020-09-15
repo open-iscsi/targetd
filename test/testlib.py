@@ -58,6 +58,23 @@ def rpc(method, params=None, data=None):
         # Transport error
         raise TargetdError(r.status_code, str(r))
 
+def test_bad_authenticate():
+    auth_info = HTTPBasicAuth("bad_user", "bad_password")
+    data = json.dumps(
+        dict(id=10,
+             method="pool_list",
+             params=None, jsonrpc="2.0")).encode('utf-8')
+    url = "%s://%s:%s%s" % ('https', host, port, rpc_path)
+
+    result = None
+    exception = None
+    try:
+        result = requests.post(url, data=data, auth=auth_info, verify=cert_file)
+    except Exception as e:
+        exception = e
+
+    return exception, result
+
 
 if __name__ == "__main__":
     try:

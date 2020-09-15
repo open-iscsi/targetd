@@ -32,9 +32,12 @@ import itertools
 import socket
 import base64
 import ssl
+from socketserver import ThreadingMixIn
+import time
+from threading import Lock
 import traceback
 import logging as log
-from targetd.utils import TargetdError
+from targetd.utils import TargetdError, Pit, Tar
 import stat
 
 default_config_path = "/etc/target/targetd.yaml"
@@ -61,6 +64,12 @@ config = {}
 # Will be added to by fs/block.initialize()
 mapping = dict()
 
+# Used to serialize the work we actually do
+mutex = Lock()
+
+# Tarpit
+tar = Tar()
+
 
 class TargetHandler(BaseHTTPRequestHandler):
     def log_request(self, code='-', size='-'):
@@ -78,16 +87,28 @@ class TargetHandler(BaseHTTPRequestHandler):
             auth_bytes = self.headers.get("Authorization")[6:].encode('utf-8')
             auth_str = base64.b64decode(auth_bytes).decode('utf-8')
             in_user, in_pass = auth_str.split(":")
-        except Exception as e:
+        except Exception:
             log.error(traceback.format_exc())
             self.send_error(400)
             return
 
+        if tar.is_stuck(self.client_address[0]):
+            log.warning("Concurrent authentication attempts from %s" %
+                        self.client_address[0])
+            # This client already has a failed authentication attempt,
+            # immediately return error without trying new credentials.
+            self.send_error(503)
+            return
+
         if in_user != config['user'] or in_pass != config['password']:
-            self.send_error(401)
+            # Tarpit the bad authentication for a bit
+            with tar.pitted(self.client_address[0]):
+                time.sleep(2)
+                self.send_error(401)
             return
 
         if not self.path == "/targetrpc":
+            log.error("Invalid URL %s" % self.path)
             self.send_error(404)
             return
 
@@ -95,6 +116,16 @@ class TargetHandler(BaseHTTPRequestHandler):
             error = (-1, "jsonrpc error")
             try:
                 content_len = int(self.headers.get('content-length'))
+
+                # Make sure we aren't being asked to read too much data.
+                # Since this happens after authentication this really should
+                # never happen for normal operation.
+                if content_len > (1024 * 128):
+                    log.error("client %s, content-length = %d rejecting!" %
+                              (self.client_address[0], content_len))
+                    self.send_error(413)
+                    return
+
                 req = json.loads(self.rfile.read(content_len).decode('utf-8'))
             except ValueError:
                 # see http://www.jsonrpc.org/specification for errcodes
@@ -116,6 +147,8 @@ class TargetHandler(BaseHTTPRequestHandler):
                 error = (-32600, "not a valid jsonrpc-2.0 request")
                 raise
 
+            # Serialize the actual work to be done.
+            mutex.acquire()
             try:
                 if params:
                     result = mapping[method](self, **params)
@@ -137,6 +170,8 @@ class TargetHandler(BaseHTTPRequestHandler):
                 error = (-1, "%s: %s" % (type(e).__name__, e))
                 log.debug(traceback.format_exc())
                 raise
+            finally:
+                mutex.release()
 
             rpcdata = json.dumps(dict(result=result, id=id_num, jsonrpc="2.0"))
         except:
@@ -151,9 +186,11 @@ class TargetHandler(BaseHTTPRequestHandler):
             self.wfile.write(rpcdata.encode('utf-8'))
 
 
-class HTTPService(HTTPServer, object):
+class HTTPService(ThreadingMixIn, HTTPServer, object):
     """
-    Handle requests one at a time
+    Handle rpc requests concurrently, but process them sequentially by using a
+    mutex.  We do this so we hopefully don't block valid API users when some
+    one tries to brute force the password.
 
     Note: Many things we are calling into are not thread safe and/or cannot be
     done concurrently.  We will process things one at a time.
@@ -277,7 +314,6 @@ def handler(signum, frame):
 
 
 def main():
-    server = None
 
     signal.signal(signal.SIGINT, handler)
 

@@ -18,6 +18,7 @@
 import re
 from contextlib import contextmanager
 from subprocess import Popen, PIPE
+from threading import Lock
 
 
 @contextmanager
@@ -85,3 +86,43 @@ def invoke(cmd, raise_exception=True):
                                 str(out[0] + out[1])))
 
     return c.returncode, out[0].decode('utf-8'), out[1].decode('utf-8')
+
+
+class Pit(object):
+
+    def __init__(self, tar, client_id):
+        self.tar = tar
+        self.client_id = client_id
+
+    def __enter__(self):
+        self.tar.lock.acquire()
+        try:
+            self.tar.client[self.client_id] = True
+        finally:
+            self.tar.lock.release()
+
+    def __exit__(self, e_type, e_value, e_traceback):
+        self.tar.lock.acquire()
+        try:
+            del self.tar.client[self.client_id]
+        finally:
+            self.tar.lock.release()
+
+
+class Tar(object):
+
+    def __init__(self):
+        self.lock = Lock()
+        self.client = dict()
+
+    def is_stuck(self, client_id):
+        self.lock.acquire()
+        try:
+            if client_id in self.client:
+                return True
+        finally:
+            self.lock.release()
+        return False
+
+    def pitted(self, client_id):
+        return Pit(self, client_id)
