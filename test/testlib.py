@@ -18,9 +18,7 @@ host = getenv("TARGETD_UT_HOST", "localhost")
 port = int(getenv("TARGETD_UT_PORT", 18700))
 rpc_path = '/targetrpc'
 proto = getenv("TARGETD_UT_PROTO", "https")
-cert_file = getenv("TARGETD_UT_CERTFILE",
-                   path.dirname(path.realpath(__file__)) +
-                   "/targetd_cert.pem")
+cert_file = getenv("TARGETD_UT_CERTFILE", "/tmp/targetd_cert.pem")
 
 id_num = 1
 

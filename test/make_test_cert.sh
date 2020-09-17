@@ -11,9 +11,9 @@ openssl req -new -x509 -key targetd_key.pem -out targetd_cert.pem -days 30 -subj
 
 # Copy them
 cp targetd_key.pem targetd_cert.pem /etc/target/. || exit 1
-
-# Test code expecting cert in same directory as test lib.
-cp targetd_cert.pem test/. || exit 1
 chmod 400 /etc/target/*.pem || exit 1
+
+# Copy to a location for test client to use
+cp targetd_cert.pem /tmp/. || exit 1
 
 exit 0
