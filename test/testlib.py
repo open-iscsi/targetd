@@ -17,6 +17,7 @@ password = getenv("TARGETD_UT_PASSWORD", "targetd")
 host = getenv("TARGETD_UT_HOST", "localhost")
 port = int(getenv("TARGETD_UT_PORT", 18700))
 rpc_path = '/targetrpc'
+proto = getenv("TARGETD_UT_PROTO", "https")
 cert_file = getenv("TARGETD_UT_CERTFILE",
                    path.dirname(path.realpath(__file__)) +
                    "/targetd_cert.pem")
@@ -49,7 +50,7 @@ def rpc(method, params=None, data=None):
                  params=params, jsonrpc="2.0")).encode('utf-8')
 
     id_num += 1
-    url = "%s://%s:%s%s" % ('https', host, port, rpc_path)
+    url = "%s://%s:%s%s" % (proto, host, port, rpc_path)
     r = requests.post(url, data=data, auth=auth_info, verify=cert_file)
     if r.status_code == 200:
         # JSON RPC error
@@ -64,7 +65,7 @@ def test_bad_authenticate():
         dict(id=10,
              method="pool_list",
              params=None, jsonrpc="2.0")).encode('utf-8')
-    url = "%s://%s:%s%s" % ('https', host, port, rpc_path)
+    url = "%s://%s:%s%s" % (proto, host, port, rpc_path)
 
     result = None
     exception = None
