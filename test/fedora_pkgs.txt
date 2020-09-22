@@ -1,0 +1,12 @@
+btrfs-progs
+libblockdev-lvm
+libstoragemgmt-targetd-plugin
+nfs-utils
+python3-blockdev
+python3-coverage
+python3-pywbem
+python3-PyYAML
+python3-rtslib
+python3-setproctitle
+target-restore
+util-linux
