@@ -15,7 +15,7 @@ Raw storage space on the host is a `pool`. From a pool, a volume
 `vol` is allocated. A volume is shared with remote hosts via an
 `export`.
 
-For file system related operations, the pool refers to a btrfs mount point.
+For file system related operations, the pool refers to a btrfs or zfs mount point.
 Each newly created file system is a subvolume on that mount point.
 
 Conventions
@@ -26,6 +26,14 @@ Conventions
 * If an error occurs, it will be indicated by returning a jsonrpc
 error object with a negative error code. Non-negative error codes
 (including 0) are not defined.
+* Any call currently not returning anything may start to do so in the future in the
+form of returning an object or list of objects.
+* Any call that returns an object may extended this object in the future with
+additional fields, clients should ignore any fields it does not know of.
+* Fields will not be removed or renamed without changing the version.
+* Any creating function will at least return the fields necessary for destruction
+later on and use the same field names.
+
 
 
 Pool operations
@@ -33,56 +41,139 @@ Pool operations
 Pools are configured on the host, and are not remotely configurable
 via this API.
 
-### pool_list()
-Returns an array of pool objects. Each pool object contains `name`,
-`size`, `free_size`, and `type` fields, and may also contain a 'uuid'
-field. The domain of the type field is [block|fs].
+### `pool_list()`
+List all defined pools.
+
+**Returns:**
+```yaml
+[
+   {
+      "name":       string,
+      "size":       number,
+      "free_size":  number,
+      "uuid":       string,
+      "type":      [block, fs],
+   }
+]
+```
+  The `name` specifies the name of the pool to be used during futher
+  interaction with the pool. The `size` specifies the total size of
+  the volume. `free_size` specifies the amount available. `type`
+  specifies the type of pool: `block` pools can be given to `vol_`
+  operations, `fs` pools can be given to `fs_` operations.
 
 Volume operations
 -----------------
 
-### vol_list(pool)
-Returns an array of volume objects in `pool`. Each volume object
-contains `name`, `size`, and `uuid` fields.
+### `vol_list(pool)`
+Returns all volume objects contained in a pool.
 
-Volume names may be reused, such as when a volume is created and then
-removed. Another volume could then be created with the same name, but
-the new volume's UUID would be a different, unique value.
+**Parameters:**
+- `pool`(**string**, *mandatory*):\
+  The name of the pool to query
+  
+**Returns:**
+```yaml
+[
+  {
+    "name": string,
+    "size": number,
+    "uuid": string,
+  }
+]
+```
+`name` specifies the name of the volume. Volume names may be reused, such
+as when a volume is created and then removed. `uuid` specifies the unique
+id associated with the volume. When a volume is created with the same name,
+the `uuid` would be a different, unique value.
 
-### vol_create(pool, name, size)
-Creates a volume named `name` with size `size` in the pool `pool`.
+### `vol_create(pool, name, size)`
+Creates a new volume with the specified size and name inside the specified pool
 
-### vol_destroy(pool, name)
-Removes `name` volume from pool `pool`. This destroys the backing
+**Parameters:**
+- `pool`(**string**, *mandatory*):\
+  The name of the pool the volume should belong to
+- `name`(**string**, *mandatory*):\
+  The name of the volume to create
+- `size`(**number**, *mandatory*):\
+  The size of the volume in bytes
+
+### `vol_destroy(pool, name)`
+Removes a volume from a pool. This destroys the backing
 data, and the data in the volume is lost even if another volume with
 the same name is created.
 
-### vol_copy(pool, vol_orig, vol_new)
+**Parameters:**
+- `pool`(**string**, *mandatory*):\
+  The name of the pool where the volume resides
+- `name`(**string**, *mandatory*):\
+  The name of the volume to delete
 
-Creates a new volume named `vol_new` in `pool` the same size as
-`vol_orig` in `pool`, and copies the contents from `vol_orig` into
-`vol_new`. `vol_orig` and `vol_new` will have differing UUIDs.
+### `vol_copy(pool, vol_orig, vol_new)`
+
+Creates a new volume based on an existing volume in a pool. It will
+ have the same size and contents as the original but the UUID differs.
+ 
+**Parameters:**
+- `pool`(**string**, *mandatory*):\
+  The name of the pool where the original volume resides and where
+  the new volume will be created
+- `vol_orig`(**string**, *mandatory*):\
+  The name of the original volume
+- `vol_new`(**string**, *mandatory*):\
+  The name of the new volume
 
 Export operations
 -----------------
 Exports make a volume accessible to a remote iSCSI initiator.
 
-### export_list()
-Returns an array of export objects. Each export object contains
-`initiator_wwn`, `lun`, `vol_name`, `vol_size`, `vol_uuid`, and
-`pool`. `initiator_wwn` is the iSCSI name (iqn.*) of the initiator
+### `export_list()`
+Returns all existing export objects.
+
+**Returns:**
+```yaml
+[
+  {
+    "initiator_wwn": string,
+    "lun":           number,
+    "vol_name":      string,
+    "vol_size":      string,
+    "vol_uuid":      string,
+    "pool":          string,
+  }
+]
+```
+`initiator_wwn` is the iSCSI name (`iqn.*`) of the initiator
 with access to the export. `lun` is the SCSI logical unit number the
 initiator will see for this export. `vol_name` is the name of the
 backing volume. `vol_uuid` and `vol_size` return the unique identifier
 and size of the volume. The `pool` attribute is the name of the pool
 containing the backing volume.
 
-### export_create(pool, vol, initiator_wwn, lun)
-Creates an export of volume `vol` in pool `pool` to the given
-initiator, and maps it to logical unit number `lun`.
+### `export_create(pool, vol, initiator_wwn, lun)`
+Creates an export of volume a volume to the given initiator and maps it to a
+ specified logical unit number.
+ 
+**Parameters:**
+- `pool`(**string**, *mandatory*):\
+  The pool where the volume resides in
+- `vol`(**string**, *mandatory*):\
+  The name of the volume to export
+- `initiator_wwn`(**number**, *mandatory*):\
+  The iSCSI name of the initiator
+- `lun`(**string**, *mandatory*):\
+  The logical unit number to map the volume to
 
-### export_destroy(pool, vol, initiator_wwn)
-Removes an export of `vol` in `pool` to `initiator_wwn`.
+### `export_destroy(pool, vol, initiator_wwn)`
+Removes an export of a given volume.
+
+**Parameters**
+- `pool`(**string**, *mandatory*):\
+  The pool where the volume to unexport resides in
+- `vol`(**string**, *mandatory*):\
+  The volume to unexport
+- `initiator_wwn`(**string**, *mandatory*):\
+  The initiator from which to unexport the volume
 
 Initiator operations
 --------------------
@@ -103,24 +194,27 @@ called, exports require no authentication.
 
 ### initiator_list(standalone_only=False)
 List all initiators.
-Parameters:
-    standalone_only(bool, optional):
-    If 'standalone_only' is True, only return initiator which is not in any
-    NodeACLGroup.
-    By default, all initiators will be included in result.
-Returns:
+
+**Parameters:**
+ - `standalone_only`(**bool**, *optional*)
+ 
+   If `standalone_only` is True, only return initiator which is not in any
+   NodeACLGroup.
+   By default, all initiators will be included in result.
+
+**Returns:**
+
+  - ```yaml
     [
         {
-            'init_id': str,
-            'init_type': str,
+            "init_id": string,
+            "init_type": string,
         },
     ]
+    ```
     The 'init_id' of result is the iSCSI IQN/NAA/EUI address of initiator.
     Example: 'iqn.2000-04.com.example:someone-01'
     The 'init_type' is reserved for future use, currently, it is 'iscsi'.
-
-Errors:
-    N/A
 
 Access Group operations
 -----------------------
@@ -250,7 +344,7 @@ Errors:
 File system operations
 ----------------------
 Ability to create different file systems and perform operation on them.  The
-pool is a btrfs or ZFS sub volume and new file systems are sub volumes within that
+pool is a btrfs or zfs sub volume and new file systems are sub volumes within that
 sub volume.
 
 ### fs_list()
@@ -301,6 +395,3 @@ the formats supported for `host`. `Chown` follows the chown format of `uid:gid` 
 Removes a NFS export given a `host` and an export `path`
 
 
-Async method calls
-------------------
-Obsolete, no longer defined.
