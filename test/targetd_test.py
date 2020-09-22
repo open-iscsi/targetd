@@ -157,6 +157,8 @@ class TestConnect(unittest.TestCase):
         diff = end - start
         self.assertTrue((diff > 1 or diff < 3), "Not expected %s" % (str(diff)))
 
+        pool.close()
+
     def test_ep_bad_path(self):
 
         existing = testlib.rpc_path
