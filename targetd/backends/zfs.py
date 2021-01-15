@@ -351,11 +351,11 @@ def fs_destroy(req, pool, name):
     destroy(req, zfs_pool, name)
 
 
-def copy(req, pool, vol_orig, vol_new, timeout=10):
-    _copy(req, pool, vol_orig, vol_new, vol_info)
+def copy(req, pool, vol_orig, vol_new, size, timeout=10):
+    _copy(req, pool, vol_orig, vol_new, size, vol_info)
 
 
-def _copy(req, pool, vol_orig, vol_new, info_fn, snap=None):
+def _copy(req, pool, vol_orig, vol_new, size, info_fn, snap=None):
     if not zfs_enable_copy:
         raise TargetdError(TargetdError.NO_SUPPORT, "Copy on ZFS disabled. Consult manual before enabling it.")
     _check_dataset_name(vol_orig)
@@ -379,6 +379,17 @@ def _copy(req, pool, vol_orig, vol_new, info_fn, snap=None):
         _zfs_exec_command(["destroy", "%s/%s@%s" % (pool, vol_orig, snap)])
         raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
                            "Could not create clone of %s@%s on pool %s" % (vol_orig, snap, pool))
+
+    if size is not None:
+         code, out, err = _zfs_exec_command(["set",
+                                            "volsize=%d" % size,
+                                            "%s/%s" % (pool, vol_new)
+                                             ])
+         if code != 0:
+             # try cleaning up the snapshot if cloning goes wrong
+             _zfs_exec_command(["destroy", "%s/%s" % (pool, vol_new)])
+             raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                                "Could not resize cloned volume of %s on pool %s" % (vol_new, pool))
 
 
 def ss(req, pool, name):
@@ -443,7 +454,7 @@ def fs_clone(req, pool, name, dest_fs_name, snapshot_name=None):
         raise TargetdError(TargetdError.EXISTS_CLONE_NAME,
                            "FS already exists with that name (ZFS)")
 
-    _copy(req, zfs_pool, name, dest_fs_name, fs_info, snapshot_name)
+    _copy(req, zfs_pool, name, dest_fs_name, None, fs_info, snapshot_name)
 
 
 def fs_pools(req):

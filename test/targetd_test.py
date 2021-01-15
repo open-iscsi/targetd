@@ -271,12 +271,13 @@ class TestTargetd(unittest.TestCase):
                          "Expected destroyed volume to not be in vol_list")
 
     @staticmethod
-    def _vol_copy(pool, vol_orig, vol_new_name):
+    def _vol_copy(pool, vol_orig, vol_new_name, size=None):
         jsonrequest("vol_copy",
                     dict(
                         pool=pool.name,
                         vol_orig=vol_orig.name,
-                        vol_new=vol_new_name))
+                        vol_new=vol_new_name,
+                        size=size))
         return TestTargetd._vol_list(pool, vol_new_name)[0]
 
     @staticmethod
@@ -516,6 +517,24 @@ class TestTargetd(unittest.TestCase):
             self.assertEqual(error_code, TargetdError.NOT_FOUND_VOLUME)
 
             # Correct name for deletion
+            vol.name = vol_name
+            self._vol_destroy(block_pool, vol)
+
+    def test_ep_copy_expand_volume(self):
+        for block_pool in self._block_pools():
+            vol_name = rs(length=6)
+            vol_copy_name = vol_name + "_copy"
+
+            vol = TestTargetd._vol_create(block_pool, vol_name)
+
+            expanded_size = 200 * 1024 * 1024 * 1024
+            TestTargetd._vol_copy(block_pool, vol, vol_copy_name, expanded_size)
+
+            vol_copy = TestTargetd._vol_list(block_pool, vol_copy_name)[0]
+            self.assertEqual(expanded_size, vol_copy.size)
+
+            vol_copy.name = vol_copy_name
+            self._vol_destroy(block_pool, vol_copy)
             vol.name = vol_name
             self._vol_destroy(block_pool, vol)
 

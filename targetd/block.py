@@ -162,12 +162,12 @@ def destroy(req, pool, name):
     mod.destroy(req, pool, name)
 
 
-def copy(req, pool, vol_orig, vol_new, timeout=10):
+def copy(req, pool, vol_orig, vol_new, size=None, timeout=10):
     mod = pool_module(pool)
     if not check_vol_exists(req, pool, vol_orig):
         raise TargetdError(TargetdError.NOT_FOUND_VOLUME,
                            "Volume %s not found in pool %s" % (vol_orig, pool))
-    mod.copy(req, pool, vol_orig, vol_new, timeout)
+    mod.copy(req, pool, vol_orig, vol_new, size, timeout)
 
 
 def export_list(req):
