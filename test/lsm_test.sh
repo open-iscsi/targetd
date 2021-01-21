@@ -41,7 +41,7 @@ if [ $FEDORA -eq 0 ]; then
 
     # Make the IPC directory
     mkdir -p /var/run/lsm/ipc || exit 1
-    PYENV=`pwd`/python_binding
+    PYENV=`pwd`/python_binding:`pwd`/plugin
     LSMDLOG=/tmp/lsmd.log
 
     # Start up the daemon
