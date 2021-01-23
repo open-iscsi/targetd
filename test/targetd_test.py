@@ -527,7 +527,7 @@ class TestTargetd(unittest.TestCase):
 
             vol = TestTargetd._vol_create(block_pool, vol_name)
 
-            expanded_size = 200 * 1024 * 1024 * 1024
+            expanded_size = vol.size + 200 * 1024 * 1024
             TestTargetd._vol_copy(block_pool, vol, vol_copy_name, expanded_size)
 
             vol_copy = TestTargetd._vol_list(block_pool, vol_copy_name)[0]
