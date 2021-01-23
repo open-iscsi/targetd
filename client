@@ -129,7 +129,7 @@ for pool in pools:
 
         try:
             jsonrequest("vol_copy",
-                        dict(pool=pool, vol_orig="test2", vol_new="test2-copy", size=8*1024*1024))
+                        dict(pool=pool, vol_orig="test2", vol_new="test2-copy"))
 
             try:
                 jsonrequest("export_create",
@@ -160,6 +160,13 @@ for pool in pools:
 
         finally:
             jsonrequest("vol_destroy", dict(pool=pool, name="test2-copy"))
+
+        try:
+            jsonrequest("vol_copy",
+                        dict(pool=pool, vol_orig="test2", vol_new="test2-copy-resize", size=8*1024*1024))
+
+        finally:
+            jsonrequest("vol_destroy", dict(pool=pool, name="test2-copy-resize"))
 
     finally:
         jsonrequest("vol_destroy", dict(pool=pool, name="test2"))
