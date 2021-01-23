@@ -62,7 +62,7 @@ the same name is created.
 Creates a new volume named `vol_new` in `pool` the same size as
 `vol_orig` in `pool`, and copies the contents from `vol_orig` into
 `vol_new`. `vol_orig` and `vol_new` will have differing UUIDs.
-Resize a new volume if set `size` after created.  
+Resize a new volume if set `size` after created (optional).  
 
 Export operations
 -----------------
