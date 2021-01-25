@@ -370,26 +370,24 @@ def _copy(req, pool, vol_orig, vol_new, size, info_fn, snap=None):
         if code != 0:
             raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
                                "Could not create snapshot of %s on pool %s" % (vol_orig, pool))
-    code, out, err = _zfs_exec_command(["clone",
-                                        "%s/%s@%s" % (pool, vol_orig, snap),
-                                        "%s/%s" % (pool, vol_new)
-                                        ])
+
+    args = ["clone"]
+
+    if size is not None:
+        args.extend(["-o",
+                    "volsize=%d" % size
+                     ])
+
+    args.extend(["%s/%s@%s" % (pool, vol_orig, snap),
+                 "%s/%s" % (pool, vol_new)
+                 ])
+
+    code, out, err = _zfs_exec_command(args)
     if code != 0:
         # try cleaning up the snapshot if cloning goes wrong
         _zfs_exec_command(["destroy", "%s/%s@%s" % (pool, vol_orig, snap)])
         raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
                            "Could not create clone of %s@%s on pool %s" % (vol_orig, snap, pool))
-
-    if size is not None:
-         code, out, err = _zfs_exec_command(["set",
-                                            "volsize=%d" % size,
-                                            "%s/%s" % (pool, vol_new)
-                                             ])
-         if code != 0:
-             # try cleaning up the snapshot if cloning goes wrong
-             _zfs_exec_command(["destroy", "%s/%s" % (pool, vol_new)])
-             raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
-                                "Could not resize cloned volume of %s on pool %s" % (vol_new, pool))
 
 
 def ss(req, pool, name):
