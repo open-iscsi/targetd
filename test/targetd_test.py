@@ -520,7 +520,7 @@ class TestTargetd(unittest.TestCase):
             vol.name = vol_name
             self._vol_destroy(block_pool, vol)
 
-    def test_ep_copy_expand_volume(self):
+    def test_gp_copy_expand_volume(self):
         for block_pool in self._block_pools():
             vol_name = rs(length=6)
             vol_copy_name = vol_name + "_copy"
@@ -535,6 +535,40 @@ class TestTargetd(unittest.TestCase):
 
             vol_copy.name = vol_copy_name
             self._vol_destroy(block_pool, vol_copy)
+            vol.name = vol_name
+            self._vol_destroy(block_pool, vol)
+
+    def test_ep_same_size_volume(self):
+        for block_pool in self._block_pools():
+            vol_name = rs(length=6)
+            vol_copy_name = vol_name + "_copy"
+            vol = TestTargetd._vol_create(block_pool, vol_name)
+
+            error_code = 0
+            try:
+                TestTargetd._vol_copy(block_pool, vol, vol_copy_name, vol.size)
+            except TargetdError as e:
+                error_code = e.error
+            self.assertEqual(error_code, TargetdError.INVALID)
+
+            vol.name = vol_name
+            self._vol_destroy(block_pool, vol)
+
+    def test_ep_shrink_size_volume(self):
+        for block_pool in self._block_pools():
+            vol_name = rs(length=6)
+            vol_copy_name = vol_name + "_copy"
+            vol = TestTargetd._vol_create(block_pool, vol_name)
+
+            shrink_size = vol.size / 2
+
+            error_code = 0
+            try:
+                TestTargetd._vol_copy(block_pool, vol, vol_copy_name, shrink_size)
+            except TargetdError as e:
+                error_code = e.error
+            self.assertEqual(error_code, TargetdError.INVALID)
+
             vol.name = vol_name
             self._vol_destroy(block_pool, vol)
 
