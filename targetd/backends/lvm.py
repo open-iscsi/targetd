@@ -199,7 +199,7 @@ def destroy(req, pool, name):
     bd.lvm.lvremove(vg_name, name)
 
 
-def copy(req, pool, vol_orig, vol_new, timeout=10):
+def copy(req, pool, vol_orig, vol_new, size, timeout=10):
     """
     Create a new volume that is a copy of an existing one.
     Since 0.6, requires thinp support.
@@ -219,6 +219,14 @@ def copy(req, pool, vol_orig, vol_new, timeout=10):
         raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
                            "Failed to copy volume, "
                            "nested error: {}".format(str(err).strip()))
+
+    if size is not None:
+        try:
+            bd.lvm.lvresize(vg_name, vol_new, size)
+        except bd.LVMError as err:
+            raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                               "Failed to resize volume, "
+                               "nested error: {}".format(str(err).strip()))
 
 
 def vol_info(pool, name):

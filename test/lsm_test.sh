@@ -37,11 +37,11 @@ if [ $FEDORA -eq 0 ]; then
     ln -s `pwd`/plugin `pwd`/python_binding/lsm/plugin  || exit 1
     ln -s `pwd`/tools/lsmcli `pwd`/python_binding/lsm || exit 1
     ln -s `pwd`/python_binding/lsm/.libs/*.so `pwd`/python_binding/lsm/. || exit 1
-    ln -s `pwd`/plugin/nfs/.libs/*.so `pwd`/plugin/nfs/. || exit 1
+    ln -s `pwd`/plugin/nfs_plugin/.libs/*.so `pwd`/plugin/nfs_plugin/. || exit 1
 
     # Make the IPC directory
     mkdir -p /var/run/lsm/ipc || exit 1
-    PYENV=`pwd`/python_binding
+    PYENV=`pwd`/python_binding:`pwd`/plugin
     LSMDLOG=/tmp/lsmd.log
 
     # Start up the daemon

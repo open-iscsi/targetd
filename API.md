@@ -57,11 +57,12 @@ Removes `name` volume from pool `pool`. This destroys the backing
 data, and the data in the volume is lost even if another volume with
 the same name is created.
 
-### vol_copy(pool, vol_orig, vol_new)
+### vol_copy(pool, vol_orig, vol_new, size)
 
 Creates a new volume named `vol_new` in `pool` the same size as
 `vol_orig` in `pool`, and copies the contents from `vol_orig` into
 `vol_new`. `vol_orig` and `vol_new` will have differing UUIDs.
+Resize a new volume if set `size` after created (optional).  
 
 Export operations
 -----------------
