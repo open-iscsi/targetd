@@ -390,6 +390,14 @@ def _copy(req, pool, vol_orig, vol_new, size, info_fn, snap=None):
                            "Could not create clone of %s@%s on pool %s" % (vol_orig, snap, pool))
 
 
+def resize(req, pool, name, size):
+    args = ["set", "volsize=%d" % size, "%s/%s" % (pool, name)]
+
+    code, out, err = _zfs_exec_command(args)
+    if code != 0:
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE, "Failed to resize volume")
+
+
 def ss(req, pool, name):
     snapshots = []
 

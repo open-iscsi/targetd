@@ -100,6 +100,7 @@ def initialize(config_dict):
         vol_create=create,
         vol_destroy=destroy,
         vol_copy=copy,
+        vol_resize=resize,
         export_list=export_list,
         export_create=export_create,
         export_destroy=export_destroy,
@@ -177,6 +178,22 @@ def copy(req, pool, vol_orig, vol_new, size=None, timeout=10):
                                                                                                          pool))
 
     mod.copy(req, pool, vol_orig, vol_new, size, timeout)
+
+
+def resize(req, pool, name, size):
+    mod = pool_module(pool)
+    if not check_vol_exists(req, pool, name):
+        raise TargetdError(TargetdError.NOT_FOUND_VOLUME,
+                           "Volume %s not found in pool %s" % (name, pool))
+
+    for v in mod.volumes(req, pool):
+        if v['name'] == name and v['size'] >= size:
+            raise TargetdError(TargetdError.INVALID_ARGUMENT,
+                               "Size %d need a larger than size in original volume %s in pool %s" % (size,
+                                                                                                     name,
+                                                                                                     pool))
+
+    mod.resize(req, pool, name, size)
 
 
 def export_list(req):

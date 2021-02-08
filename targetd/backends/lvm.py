@@ -229,6 +229,22 @@ def copy(req, pool, vol_orig, vol_new, size, timeout=10):
                                "nested error: {}".format(str(err).strip()))
 
 
+def resize(req, pool, name, size):
+    """
+    Resize an existing volume to `size`.
+    """
+
+    vg_name, _ = get_vg_lv(pool)
+
+    try:
+        bd.lvm.lvresize(vg_name, name, size)
+    except bd.LVMError as err:
+        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
+                           "Failed to resize volume, "
+                           "nested error: {}".format(str(err).strip()))
+
+
+
 def vol_info(pool, name):
     return bd.lvm.lvinfo(pool2dev_name(pool), name)
 
