@@ -557,7 +557,7 @@ class TestTargetd(unittest.TestCase):
                 TestTargetd._vol_copy(block_pool, vol, vol_copy_name, vol.size)
             except TargetdError as e:
                 error_code = e.error
-            self.assertEqual(error_code, TargetdError.INVALID)
+            self.assertEqual(error_code, TargetdError.INVALID_ARGUMENT)
 
             vol.name = vol_name
             self._vol_destroy(block_pool, vol)
@@ -575,7 +575,7 @@ class TestTargetd(unittest.TestCase):
                 TestTargetd._vol_copy(block_pool, vol, vol_copy_name, shrink_size)
             except TargetdError as e:
                 error_code = e.error
-            self.assertEqual(error_code, TargetdError.INVALID)
+            self.assertEqual(error_code, TargetdError.INVALID_ARGUMENT)
 
             vol.name = vol_name
             self._vol_destroy(block_pool, vol)
