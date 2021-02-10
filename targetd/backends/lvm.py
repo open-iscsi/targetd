@@ -36,8 +36,9 @@ vg_name_2_pool_name_dict = {}
 try:
     succ_ = bd.init(requested_plugins)
 except GLib.GError as err:
-    raise RuntimeError("Failed to initialize libbd and its plugins (%s)" %
-                       REQUESTED_PLUGIN_NAMES)
+    raise RuntimeError(
+        "Failed to initialize libbd and its plugins (%s)" % REQUESTED_PLUGIN_NAMES
+    )
 
 
 def get_vg_lv(pool_name):
@@ -45,16 +46,16 @@ def get_vg_lv(pool_name):
     Checks for the existence of a '/' in the pool name.  We are using this
     as an indicator that the vg & lv refer to a thin pool.
     """
-    if '/' in pool_name:
-        return pool_name.split('/')
+    if "/" in pool_name:
+        return pool_name.split("/")
     else:
         return pool_name, None
 
 
 def has_pool(pool_name):
     """
-        This can be used to check if module owns given pool without raising
-        exception
+    This can be used to check if module owns given pool without raising
+    exception
     """
     pool_to_check = get_vg_lv(pool_name)[0]
     return pool_to_check in [get_vg_lv(x)[0] for x in pools]
@@ -74,8 +75,8 @@ def split_udev_path(udev_path):
 
 def pool2dev_name(pool):
     """
-        When using LVM we need to convert pool name to vg_name and vice-versa.
-        That's because with thin pool it's not the same thing.
+    When using LVM we need to convert pool name to vg_name and vice-versa.
+    That's because with thin pool it's not the same thing.
     """
     vg_name, thin_pool = get_vg_lv(pool)
     return vg_name
@@ -83,15 +84,15 @@ def pool2dev_name(pool):
 
 def dev2pool_name(dev):
     """
-        When using LVM we need to convert vg_name to pool name and vice-versa.
-        That's because with thin pool it's not the same thing.
+    When using LVM we need to convert vg_name to pool name and vice-versa.
+    That's because with thin pool it's not the same thing.
     """
     return vg_name_2_pool_name_dict[dev]
 
 
 def get_so_name(pool, volname):
     """
-        Storage object names in LVM are just plain vg_name:volname
+    Storage object names in LVM are just plain vg_name:volname
     """
     vg_name, lv_pool = get_vg_lv(pool)
     return "%s:%s" % (vg_name, volname)
@@ -134,17 +135,20 @@ def check_pools_access(check_pools):
                 error = str(lve).strip()
 
             if thinp is None:
-                raise TargetdError(TargetdError.NOT_FOUND_VOLUME_GROUP,
-                                   "VG with thin LV {} not found, "
-                                   "nested error: {}".format(pool, error))
+                raise TargetdError(
+                    TargetdError.NOT_FOUND_VOLUME_GROUP,
+                    "VG with thin LV {} not found, "
+                    "nested error: {}".format(pool, error),
+                )
         else:
             try:
                 bd.lvm.vginfo(vg_name)
             except bd.LVMError as vge:
                 error = str(vge).strip()
-                raise TargetdError(TargetdError.NOT_FOUND_VOLUME_GROUP,
-                                   "VG pool {} not found, "
-                                   "nested error: {}".format(vg_name, error))
+                raise TargetdError(
+                    TargetdError.NOT_FOUND_VOLUME_GROUP,
+                    "VG pool {} not found, " "nested error: {}".format(vg_name, error),
+                )
 
         # Allowed multi-pool configs:
         # two thinpools from a single vg: ok
@@ -153,8 +157,8 @@ def check_pools_access(check_pools):
         #
         if thin_pool and vg_name in check_pools:
             raise TargetdError(
-                TargetdError.INVALID,
-                "VG pool and thin pool from same VG not supported")
+                TargetdError.INVALID, "VG pool and thin pool from same VG not supported"
+            )
 
     return
 
@@ -165,13 +169,11 @@ def volumes(req, pool):
     for lv in bd.lvm.lvs(vg_name):
         attrib = lv.attr
         if not lv_pool:
-            if attrib[0] == '-':
-                output.append(
-                    dict(name=lv.lv_name, size=lv.size, uuid=lv.uuid))
+            if attrib[0] == "-":
+                output.append(dict(name=lv.lv_name, size=lv.size, uuid=lv.uuid))
         else:
-            if attrib[0] == 'V' and lv.pool_lv == lv_pool:
-                output.append(
-                    dict(name=lv.lv_name, size=lv.size, uuid=lv.uuid))
+            if attrib[0] == "V" and lv.pool_lv == lv_pool:
+                output.append(dict(name=lv.lv_name, size=lv.size, uuid=lv.uuid))
 
     return output
 
@@ -179,9 +181,8 @@ def volumes(req, pool):
 def create(req, pool, name, size):
     # Check to ensure that we don't have a volume with this name already,
     # lvm will fail if we try to create a LV with a duplicate name
-    if any(v['name'] == name for v in volumes(req, pool)):
-        raise TargetdError(TargetdError.NAME_CONFLICT,
-                           "Volume with that name exists")
+    if any(v["name"] == name for v in volumes(req, pool)):
+        raise TargetdError(TargetdError.NAME_CONFLICT, "Volume with that name exists")
 
     vg_name, lv_pool = get_vg_lv(pool)
     if lv_pool:
@@ -189,9 +190,9 @@ def create(req, pool, name, size):
         try:
             bd.lvm.thlvcreate(vg_name, lv_pool, name, int(size))
         except bd.LVMError:
-            bd.lvm.lvcreate(vg_name, name, int(size), 'linear')
+            bd.lvm.lvcreate(vg_name, name, int(size), "linear")
     else:
-        bd.lvm.lvcreate(vg_name, name, int(size), 'linear')
+        bd.lvm.lvcreate(vg_name, name, int(size), "linear")
 
 
 def destroy(req, pool, name):
@@ -204,9 +205,8 @@ def copy(req, pool, vol_orig, vol_new, size, timeout=10):
     Create a new volume that is a copy of an existing one.
     Since 0.6, requires thinp support.
     """
-    if any(v['name'] == vol_new for v in volumes(req, pool)):
-        raise TargetdError(TargetdError.NAME_CONFLICT,
-                           "Volume with that name exists")
+    if any(v["name"] == vol_new for v in volumes(req, pool)):
+        raise TargetdError(TargetdError.NAME_CONFLICT, "Volume with that name exists")
 
     vg_name, thin_pool = get_vg_lv(pool)
 
@@ -216,17 +216,19 @@ def copy(req, pool, vol_orig, vol_new, size, timeout=10):
     try:
         bd.lvm.thsnapshotcreate(vg_name, vol_orig, vol_new, thin_pool)
     except bd.LVMError as err:
-        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
-                           "Failed to copy volume, "
-                           "nested error: {}".format(str(err).strip()))
+        raise TargetdError(
+            TargetdError.UNEXPECTED_EXIT_CODE,
+            "Failed to copy volume, " "nested error: {}".format(str(err).strip()),
+        )
 
     if size is not None:
         try:
             bd.lvm.lvresize(vg_name, vol_new, size)
         except bd.LVMError as err:
-            raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
-                               "Failed to resize volume, "
-                               "nested error: {}".format(str(err).strip()))
+            raise TargetdError(
+                TargetdError.UNEXPECTED_EXIT_CODE,
+                "Failed to resize volume, " "nested error: {}".format(str(err).strip()),
+            )
 
 
 def resize(req, pool, name, size):
@@ -239,10 +241,10 @@ def resize(req, pool, name, size):
     try:
         bd.lvm.lvresize(vg_name, name, size)
     except bd.LVMError as err:
-        raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
-                           "Failed to resize volume, "
-                           "nested error: {}".format(str(err).strip()))
-
+        raise TargetdError(
+            TargetdError.UNEXPECTED_EXIT_CODE,
+            "Failed to resize volume, " "nested error: {}".format(str(err).strip()),
+        )
 
 
 def vol_info(pool, name):
@@ -260,7 +262,7 @@ def block_pools(req):
         # Note: It is possible for percentages to return a (-1) which depending
         # on lvm2app library version can be returned as -1 or 2**64-1
 
-        unsigned_val = (2 ** 64 - 1)
+        unsigned_val = 2 ** 64 - 1
         free_bytes = thinp_lib_obj.size
         dp = thinp_lib_obj.data_percent
         mp = thinp_lib_obj.metadata_percent
@@ -284,8 +286,10 @@ def block_pools(req):
                     name=pool,
                     size=vg.size,
                     free_size=vg.free,
-                    type='block',
-                    uuid=vg.uuid))
+                    type="block",
+                    uuid=vg.uuid,
+                )
+            )
         else:
             thinp = bd.lvm.lvinfo(vg_name, tp_name)
             results.append(
@@ -293,7 +297,9 @@ def block_pools(req):
                     name=pool,
                     size=thinp.size,
                     free_size=thinp_get_free_bytes(thinp),
-                    type='block',
-                    uuid=thinp.uuid))
+                    type="block",
+                    uuid=thinp.uuid,
+                )
+            )
 
     return results

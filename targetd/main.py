@@ -43,20 +43,19 @@ import stat
 default_config_path = "/etc/target/targetd.yaml"
 
 default_config = dict(
-    block_pools=['vg-targetd'],
+    block_pools=["vg-targetd"],
     fs_pools=[],
     zfs_block_pools=[],
     zfs_enable_copy=False,
     user="admin",
-    log_level='info',
+    log_level="info",
     # security: no default password
-    target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" %
-    socket.gethostname(),
+    target_name="iqn.2003-01.org.linux-iscsi.%s:targetd" % socket.gethostname(),
     ssl=False,
     ssl_cert="/etc/target/targetd_cert.pem",
     ssl_key="/etc/target/targetd_key.pem",
     portal_addresses=["0.0.0.0"],
-    allow_chown=False
+    allow_chown=False,
 )
 
 config = {}
@@ -72,7 +71,7 @@ tar = Tar()
 
 
 class TargetHandler(BaseHTTPRequestHandler):
-    def log_request(self, code='-', size='-'):
+    def log_request(self, code="-", size="-"):
         # override base class - don't log good requests
         pass
 
@@ -84,8 +83,8 @@ class TargetHandler(BaseHTTPRequestHandler):
 
         # get basic auth string, strip "Basic "
         try:
-            auth_bytes = self.headers.get("Authorization")[6:].encode('utf-8')
-            auth_str = base64.b64decode(auth_bytes).decode('utf-8')
+            auth_bytes = self.headers.get("Authorization")[6:].encode("utf-8")
+            auth_str = base64.b64decode(auth_bytes).decode("utf-8")
             in_user, in_pass = auth_str.split(":")
         except Exception:
             log.error(traceback.format_exc())
@@ -93,14 +92,15 @@ class TargetHandler(BaseHTTPRequestHandler):
             return
 
         if tar.is_stuck(self.client_address[0]):
-            log.warning("Concurrent authentication attempts from %s" %
-                        self.client_address[0])
+            log.warning(
+                "Concurrent authentication attempts from %s" % self.client_address[0]
+            )
             # This client already has a failed authentication attempt,
             # immediately return error without trying new credentials.
             self.send_error(503)
             return
 
-        if in_user != config['user'] or in_pass != config['password']:
+        if in_user != config["user"] or in_pass != config["password"]:
             # Tarpit the bad authentication for a bit
             with tar.pitted(self.client_address[0]):
                 time.sleep(2)
@@ -115,18 +115,20 @@ class TargetHandler(BaseHTTPRequestHandler):
         try:
             error = (-1, "jsonrpc error")
             try:
-                content_len = int(self.headers.get('content-length'))
+                content_len = int(self.headers.get("content-length"))
 
                 # Make sure we aren't being asked to read too much data.
                 # Since this happens after authentication this really should
                 # never happen for normal operation.
                 if content_len > (1024 * 128):
-                    log.error("client %s, content-length = %d rejecting!" %
-                              (self.client_address[0], content_len))
+                    log.error(
+                        "client %s, content-length = %d rejecting!"
+                        % (self.client_address[0], content_len)
+                    )
                     self.send_error(413)
                     return
 
-                req = json.loads(self.rfile.read(content_len).decode('utf-8'))
+                req = json.loads(self.rfile.read(content_len).decode("utf-8"))
             except ValueError:
                 # see http://www.jsonrpc.org/specification for errcodes
                 error = (-32700, "parse error")
@@ -137,12 +139,12 @@ class TargetHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             try:
-                version = req['jsonrpc']
+                version = req["jsonrpc"]
                 if version != "2.0":
                     raise ValueError
-                method = req['method']
-                id_num = int(req['id'])
-                params = req.get('params', None)
+                method = req["method"]
+                id_num = int(req["id"])
+                params = req.get("params", None)
             except (KeyError, ValueError):
                 error = (-32600, "not a valid jsonrpc-2.0 request")
                 raise
@@ -159,8 +161,7 @@ class TargetHandler(BaseHTTPRequestHandler):
                 log.debug(traceback.format_exc())
                 raise
             except TypeError:
-                error = (TargetdError.INVALID_ARGUMENT,
-                         "invalid method arguments(s)")
+                error = (TargetdError.INVALID_ARGUMENT, "invalid method arguments(s)")
                 log.debug(traceback.format_exc())
                 raise
             except TargetdError as td:
@@ -176,14 +177,16 @@ class TargetHandler(BaseHTTPRequestHandler):
             rpcdata = json.dumps(dict(result=result, id=id_num, jsonrpc="2.0"))
         except:
             log.debug(traceback.format_exc())
-            log.debug('Error=%s, msg=%s' % (error[0], error[1]))
+            log.debug("Error=%s, msg=%s" % (error[0], error[1]))
             rpcdata = json.dumps(
                 dict(
                     error=dict(code=error[0], message=error[1]),
                     id=id_num,
-                    jsonrpc="2.0"))
+                    jsonrpc="2.0",
+                )
+            )
         finally:
-            self.wfile.write(rpcdata.encode('utf-8'))
+            self.wfile.write(rpcdata.encode("utf-8"))
 
 
 class HTTPService(ThreadingMixIn, HTTPServer, object):
@@ -207,7 +210,8 @@ class TLSHTTPService(HTTPService):
             keyfile=config["ssl_key"],
             certfile=config["ssl_cert"],
             ciphers="HIGH:-aNULL:-eNULL:-PSK",
-            suppress_ragged_eofs=True)
+            suppress_ragged_eofs=True,
+        )
         return self.RequestHandlerClass(sockssl, addr, self)
 
     @staticmethod
@@ -218,14 +222,15 @@ class TLSHTTPService(HTTPService):
             ss = os.stat(f)
             if stat.S_ISREG(ss.st_mode):
                 if ss.st_uid == 0:
-                    if ss.st_mode & 0o077 == 0 and \
-                            bool(ss.st_mode & stat.S_IRUSR):
+                    if ss.st_mode & 0o077 == 0 and bool(ss.st_mode & stat.S_IRUSR):
                         rc = True
                     else:
-                        log.error("SSL file: '%s' incorrect permissions (%s), "
-                                  "ensure file is _not_ readable or writeable "
-                                  "by anyone other than owner, and that owner "
-                                  "can read." % (f, oct(ss.st_mode & 0o777)))
+                        log.error(
+                            "SSL file: '%s' incorrect permissions (%s), "
+                            "ensure file is _not_ readable or writeable "
+                            "by anyone other than owner, and that owner "
+                            "can read." % (f, oct(ss.st_mode & 0o777))
+                        )
                 else:
                     log.error("SSL file: '%s' not owned by root." % f)
             else:
@@ -236,8 +241,9 @@ class TLSHTTPService(HTTPService):
 
     @staticmethod
     def verify_certificates():
-        return (TLSHTTPService._verify_ssl_file(config["ssl_key"])
-                and TLSHTTPService._verify_ssl_file(config["ssl_cert"]))
+        return TLSHTTPService._verify_ssl_file(
+            config["ssl_key"]
+        ) and TLSHTTPService._verify_ssl_file(config["ssl_cert"])
 
 
 def load_config(config_path):
@@ -257,26 +263,26 @@ def load_config(config_path):
             config[key] = value
 
     # compatibility: handle old single-pool config option
-    if 'pool_name' in config:
-        log.warning("Please update config file, "
-                    "'pool_name' should be 'block_pools'")
-        config['block_pools'] = [config['pool_name']]
-        del config['pool_name']
+    if "pool_name" in config:
+        log.warning("Please update config file, " "'pool_name' should be 'block_pools'")
+        config["block_pools"] = [config["pool_name"]]
+        del config["pool_name"]
 
     # Make unique pool lists
-    config['block_pools'] = set(config['block_pools'])
-    config['fs_pools'] = set(config['fs_pools'])
-    config['zfs_block_pools'] = set(config['zfs_block_pools'])
+    config["block_pools"] = set(config["block_pools"])
+    config["fs_pools"] = set(config["fs_pools"])
+    config["zfs_block_pools"] = set(config["zfs_block_pools"])
 
-    passwd = config.get('password', None)
+    passwd = config.get("password", None)
     if not passwd or type(passwd) is not str:
-        log.critical("password not set in %s in the form 'password: string_pw'"
-                     % config_path)
+        log.critical(
+            "password not set in %s in the form 'password: string_pw'" % config_path
+        )
         raise AttributeError
 
     # convert log level to int
-    config['log_level'] = getattr(log, config['log_level'].upper(), log.INFO)
-    log.basicConfig(level=config['log_level'])
+    config["log_level"] = getattr(log, config["log_level"].upper(), log.INFO)
+    log.basicConfig(level=config["log_level"])
 
 
 def update_mapping():
@@ -300,7 +306,7 @@ def update_mapping():
     def pool_list(req):
         return list(itertools.chain(block.block_pools(req), fs.fs_pools(req)))
 
-    mapping['pool_list'] = pool_list
+    mapping["pool_list"] = pool_list
 
 
 RUN = True
@@ -330,7 +336,7 @@ def main():
         log.error(repr(e))
         return -1
 
-    if config['ssl']:
+    if config["ssl"]:
         server_class = TLSHTTPService
 
         # Make sure certificates are good to go!
@@ -342,7 +348,7 @@ def main():
         server_class = HTTPService
         note = "(TLS no)"
 
-    server = server_class(('', 18700), TargetHandler)
+    server = server_class(("", 18700), TargetHandler)
     log.info("started server %s", note)
 
     server.timeout = 0.5

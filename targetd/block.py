@@ -15,9 +15,20 @@
 #
 # Routines to export block devices over iscsi.
 
-from rtslib_fb import (Target, TPG, NodeACL, FabricModule, BlockStorageObject,
-                       RTSRoot, NetworkPortal, LUN, MappedLUN, RTSLibError,
-                       RTSLibNotInCFS, NodeACLGroup)
+from rtslib_fb import (
+    Target,
+    TPG,
+    NodeACL,
+    FabricModule,
+    BlockStorageObject,
+    RTSRoot,
+    NetworkPortal,
+    LUN,
+    MappedLUN,
+    RTSLibError,
+    RTSLibNotInCFS,
+    NodeACLGroup,
+)
 
 from targetd.backends import lvm, zfs
 from targetd.main import TargetdError
@@ -37,14 +48,8 @@ def set_portal_addresses(tpg):
         NetworkPortal(tpg, a)
 
 
-pools = {
-    "zfs": [],
-    "lvm": []
-}
-pool_modules = {
-    "zfs": zfs,
-    "lvm": lvm
-}
+pools = {"zfs": [], "lvm": []}
+pool_modules = {"zfs": zfs, "lvm": lvm}
 target_name = ""
 addresses = []
 
@@ -53,24 +58,25 @@ def pool_module(pool_name):
     for modname, mod in pool_modules.items():
         if mod.has_pool(pool_name):
             return mod
-    raise TargetdError(TargetdError.INVALID_POOL,
-                       "Invalid pool (%s)" % pool_name)
+    raise TargetdError(TargetdError.INVALID_POOL, "Invalid pool (%s)" % pool_name)
 
 
 def udev_path_module(udev_path):
     for modname, mod in pool_modules.items():
         if mod.has_udev_path(udev_path):
             return mod
-    raise TargetdError(TargetdError.INVALID_POOL,
-                       "Pool not found by udev path (%s)" % udev_path)
+    raise TargetdError(
+        TargetdError.INVALID_POOL, "Pool not found by udev path (%s)" % udev_path
+    )
 
 
 def so_name_module(so_name):
     for modname, mod in pool_modules.items():
         if mod.has_so_name(so_name):
             return mod
-    raise TargetdError(TargetdError.INVALID_POOL,
-                       "Pool not found by storage object (%s)" % so_name)
+    raise TargetdError(
+        TargetdError.INVALID_POOL, "Pool not found by storage object (%s)" % so_name
+    )
 
 
 #
@@ -78,18 +84,20 @@ def so_name_module(so_name):
 #
 def initialize(config_dict):
     global pools
-    pools["lvm"] = list(config_dict['block_pools'])
-    pools["zfs"] = list(config_dict['zfs_block_pools'])
+    pools["lvm"] = list(config_dict["block_pools"])
+    pools["zfs"] = list(config_dict["zfs_block_pools"])
 
     global target_name
-    target_name = config_dict['target_name']
+    target_name = config_dict["target_name"]
 
     global addresses
-    addresses = config_dict['portal_addresses']
+    addresses = config_dict["portal_addresses"]
 
-    if any(i in pools['zfs'] for i in pools['lvm']):
-        raise TargetdError(TargetdError.INVALID,
-                           "Conflicting names in zfs_block_pools and block_pools in config.")
+    if any(i in pools["zfs"] for i in pools["lvm"]):
+        raise TargetdError(
+            TargetdError.INVALID,
+            "Conflicting names in zfs_block_pools and block_pools in config.",
+        )
 
     # initialize and check both pools
     for modname, mod in pool_modules.items():
@@ -123,7 +131,7 @@ def volumes(req, pool):
 
 def check_vol_exists(req, pool, name):
     mod = pool_module(pool)
-    if any(v['name'] == name for v in mod.volumes(req, pool)):
+    if any(v["name"] == name for v in mod.volumes(req, pool)):
         return True
     return False
 
@@ -133,8 +141,7 @@ def create(req, pool, name, size):
     # Check to ensure that we don't have a volume with this name already,
     # lvm/zfs will fail if we try to create a LV/dataset with a duplicate name
     if check_vol_exists(req, pool, name):
-        raise TargetdError(TargetdError.NAME_CONFLICT,
-                           "Volume with that name exists")
+        raise TargetdError(TargetdError.NAME_CONFLICT, "Volume with that name exists")
     mod.create(req, pool, name, size)
 
 
@@ -145,20 +152,23 @@ def get_so_name(pool, volname):
 def destroy(req, pool, name):
     mod = pool_module(pool)
     if not check_vol_exists(req, pool, name):
-        raise TargetdError(TargetdError.NOT_FOUND_VOLUME,
-                           "Volume %s not found in pool %s" % (name, pool))
+        raise TargetdError(
+            TargetdError.NOT_FOUND_VOLUME,
+            "Volume %s not found in pool %s" % (name, pool),
+        )
 
     with ignored(RTSLibNotInCFS):
-        fm = FabricModule('iscsi')
-        t = Target(fm, target_name, mode='lookup')
-        tpg = TPG(t, 1, mode='lookup')
+        fm = FabricModule("iscsi")
+        t = Target(fm, target_name, mode="lookup")
+        tpg = TPG(t, 1, mode="lookup")
 
         so_name = get_so_name(pool, name)
 
         if so_name in (lun.storage_object.name for lun in tpg.luns):
-            raise TargetdError(TargetdError.VOLUME_MASKED,
-                               "Volume '%s' cannot be "
-                               "removed while exported" % name)
+            raise TargetdError(
+                TargetdError.VOLUME_MASKED,
+                "Volume '%s' cannot be " "removed while exported" % name,
+            )
 
     mod.destroy(req, pool, name)
 
@@ -166,16 +176,19 @@ def destroy(req, pool, name):
 def copy(req, pool, vol_orig, vol_new, size=None, timeout=10):
     mod = pool_module(pool)
     if not check_vol_exists(req, pool, vol_orig):
-        raise TargetdError(TargetdError.NOT_FOUND_VOLUME,
-                           "Volume %s not found in pool %s" % (vol_orig, pool))
+        raise TargetdError(
+            TargetdError.NOT_FOUND_VOLUME,
+            "Volume %s not found in pool %s" % (vol_orig, pool),
+        )
 
     if size is not None:
         for v in mod.volumes(req, pool):
-            if v['name'] == vol_orig and v['size'] >= size:
-                raise TargetdError(TargetdError.INVALID_ARGUMENT,
-                                   "Size %d need a larger than size in original volume %s in pool %s" % (size,
-                                                                                                         vol_orig,
-                                                                                                         pool))
+            if v["name"] == vol_orig and v["size"] >= size:
+                raise TargetdError(
+                    TargetdError.INVALID_ARGUMENT,
+                    "Size %d need a larger than size in original volume %s in pool %s"
+                    % (size, vol_orig, pool),
+                )
 
     mod.copy(req, pool, vol_orig, vol_new, size, timeout)
 
@@ -183,24 +196,27 @@ def copy(req, pool, vol_orig, vol_new, size=None, timeout=10):
 def resize(req, pool, name, size):
     mod = pool_module(pool)
     if not check_vol_exists(req, pool, name):
-        raise TargetdError(TargetdError.NOT_FOUND_VOLUME,
-                           "Volume %s not found in pool %s" % (name, pool))
+        raise TargetdError(
+            TargetdError.NOT_FOUND_VOLUME,
+            "Volume %s not found in pool %s" % (name, pool),
+        )
 
     for v in mod.volumes(req, pool):
-        if v['name'] == name and v['size'] >= size:
-            raise TargetdError(TargetdError.INVALID_ARGUMENT,
-                               "Size %d need a larger than size in original volume %s in pool %s" % (size,
-                                                                                                     name,
-                                                                                                     pool))
+        if v["name"] == name and v["size"] >= size:
+            raise TargetdError(
+                TargetdError.INVALID_ARGUMENT,
+                "Size %d need a larger than size in original volume %s in pool %s"
+                % (size, name, pool),
+            )
 
     mod.resize(req, pool, name, size)
 
 
 def export_list(req):
     try:
-        fm = FabricModule('iscsi')
-        t = Target(fm, target_name, mode='lookup')
-        tpg = TPG(t, 1, mode='lookup')
+        fm = FabricModule("iscsi")
+        t = Target(fm, target_name, mode="lookup")
+        tpg = TPG(t, 1, mode="lookup")
     except RTSLibNotInCFS:
         return []
 
@@ -208,8 +224,9 @@ def export_list(req):
     for na in tpg.node_acls:
         for mlun in na.mapped_luns:
             mod = udev_path_module(mlun.tpg_lun.storage_object.udev_path)
-            mlun_pool, mlun_name = \
-                mod.split_udev_path(mlun.tpg_lun.storage_object.udev_path)
+            mlun_pool, mlun_name = mod.split_udev_path(
+                mlun.tpg_lun.storage_object.udev_path
+            )
             vinfo = mod.vol_info(mod.dev2pool_name(mlun_pool), mlun_name)
             exports.append(
                 dict(
@@ -218,16 +235,18 @@ def export_list(req):
                     vol_name=mlun_name,
                     pool=mod.dev2pool_name(mlun_pool),
                     vol_uuid=vinfo.uuid,
-                    vol_size=vinfo.size))
+                    vol_size=vinfo.size,
+                )
+            )
     return exports
 
 
 def export_create(req, pool, vol, initiator_wwn, lun):
-    fm = FabricModule('iscsi')
+    fm = FabricModule("iscsi")
     t = Target(fm, target_name)
     tpg = TPG(t, 1)
     tpg.enable = True
-    tpg.set_attribute("authentication", '0')
+    tpg.set_attribute("authentication", "0")
 
     set_portal_addresses(tpg)
 
@@ -247,7 +266,7 @@ def export_create(req, pool, vol, initiator_wwn, lun):
 
 def export_destroy(req, pool, vol, initiator_wwn):
     mod = pool_module(pool)
-    fm = FabricModule('iscsi')
+    fm = FabricModule("iscsi")
     t = Target(fm, target_name)
     tpg = TPG(t, 1)
     na = NodeACL(tpg, initiator_wwn)
@@ -257,8 +276,9 @@ def export_destroy(req, pool, vol, initiator_wwn):
     for mlun in na.mapped_luns:
         # all SOs are Block so we can access udev_path safely
         if mod.has_udev_path(mlun.tpg_lun.storage_object.udev_path):
-            mlun_vg, mlun_name = \
-                mod.split_udev_path(mlun.tpg_lun.storage_object.udev_path)
+            mlun_vg, mlun_name = mod.split_udev_path(
+                mlun.tpg_lun.storage_object.udev_path
+            )
 
             if mlun_vg == pool_dev_name and mlun_name == vol:
                 tpg_lun = mlun.tpg_lun
@@ -270,9 +290,10 @@ def export_destroy(req, pool, vol, initiator_wwn):
                     so.delete()
                 break
     else:
-        raise TargetdError(TargetdError.NOT_FOUND_VOLUME_EXPORT,
-                           "Volume '%s' not found in %s exports" %
-                           (vol, initiator_wwn))
+        raise TargetdError(
+            TargetdError.NOT_FOUND_VOLUME_EXPORT,
+            "Volume '%s' not found in %s exports" % (vol, initiator_wwn),
+        )
 
     # Clean up tree if branch has no leaf
     if not any(na.mapped_luns):
@@ -285,19 +306,18 @@ def export_destroy(req, pool, vol, initiator_wwn):
     RTSRoot().save_to_file()
 
 
-def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user,
-                       out_pass):
-    fm = FabricModule('iscsi')
+def initiator_set_auth(req, initiator_wwn, in_user, in_pass, out_user, out_pass):
+    fm = FabricModule("iscsi")
     t = Target(fm, target_name)
     tpg = TPG(t, 1)
     na = NodeACL(tpg, initiator_wwn)
 
     if not in_user or not in_pass:
         # rtslib treats '' as its NULL value for these
-        in_user = in_pass = ''
+        in_user = in_pass = ""
 
     if not out_user or not out_pass:
-        out_user = out_pass = ''
+        out_user = out_pass = ""
 
     na.chap_userid = in_user
     na.chap_password = in_pass
@@ -318,7 +338,7 @@ def block_pools(req):
 
 
 def _get_iscsi_tpg():
-    fabric_module = FabricModule('iscsi')
+    fabric_module = FabricModule("iscsi")
     target = Target(fabric_module, target_name)
     return TPG(target, 1)
 
@@ -352,11 +372,11 @@ def initiator_list(req, standalone_only=False):
         else:
             return True
 
-    return list({
-                    'init_id': node_acl.node_wwn,
-                    'init_type': 'iscsi'
-                } for node_acl in _get_iscsi_tpg().node_acls
-                if _condition(node_acl, standalone_only))
+    return list(
+        {"init_id": node_acl.node_wwn, "init_type": "iscsi"}
+        for node_acl in _get_iscsi_tpg().node_acls
+        if _condition(node_acl, standalone_only)
+    )
 
 
 def access_group_list(req):
@@ -378,15 +398,18 @@ def access_group_list(req):
     Raises:
         N/A
     """
-    return list({
-                    'name': node_acl_group.name,
-                    'init_ids': list(node_acl_group.wwns),
-                    'init_type': 'iscsi',
-                } for node_acl_group in _get_iscsi_tpg().node_acl_groups)
+    return list(
+        {
+            "name": node_acl_group.name,
+            "init_ids": list(node_acl_group.wwns),
+            "init_type": "iscsi",
+        }
+        for node_acl_group in _get_iscsi_tpg().node_acl_groups
+    )
 
 
 def access_group_create(req, ag_name, init_id, init_type):
-    if init_type != 'iscsi':
+    if init_type != "iscsi":
         raise TargetdError(TargetdError.NO_SUPPORT, "Only support iscsi")
 
     name_check(ag_name)
@@ -399,12 +422,12 @@ def access_group_create(req, ag_name, init_id, init_type):
 
     for node_acl_group in tpg.node_acl_groups:
         if node_acl_group.name == ag_name:
-            raise TargetdError(TargetdError.NAME_CONFLICT,
-                               "Requested access group name is in use")
+            raise TargetdError(
+                TargetdError.NAME_CONFLICT, "Requested access group name is in use"
+            )
 
     if init_id in list(i.node_wwn for i in tpg.node_acls):
-        raise TargetdError(TargetdError.EXISTS_INITIATOR,
-                           "Requested init_id is in use")
+        raise TargetdError(TargetdError.EXISTS_INITIATOR, "Requested init_id is in use")
 
     node_acl_group = NodeACLGroup(tpg, ag_name)
     node_acl_group.add_acl(init_id)
@@ -417,7 +440,7 @@ def access_group_destroy(req, ag_name):
 
 
 def access_group_init_add(req, ag_name, init_id, init_type):
-    if init_type != 'iscsi':
+    if init_type != "iscsi":
         raise TargetdError(TargetdError.NO_SUPPORT, "Only support iscsi")
 
     tpg = _get_iscsi_tpg()
@@ -433,18 +456,20 @@ def access_group_init_add(req, ag_name, init_id, init_type):
         if init_id in list(node_acl_group.wwns):
             raise TargetdError(
                 TargetdError.EXISTS_INITIATOR,
-                "Requested init_id is used by other access group")
+                "Requested init_id is used by other access group",
+            )
     for node_acl in tpg.node_acls:
         if init_id == node_acl.node_wwn:
-            raise TargetdError(TargetdError.EXISTS_INITIATOR,
-                               "Requested init_id is in use")
+            raise TargetdError(
+                TargetdError.EXISTS_INITIATOR, "Requested init_id is in use"
+            )
 
     NodeACLGroup(tpg, ag_name).add_acl(init_id)
     RTSRoot().save_to_file()
 
 
 def access_group_init_del(req, ag_name, init_id, init_type):
-    if init_type != 'iscsi':
+    if init_type != "iscsi":
         raise TargetdError(TargetdError.NO_SUPPORT, "Only support iscsi")
 
     tpg = _get_iscsi_tpg()
@@ -481,12 +506,14 @@ def access_group_map_list(req):
             # When user delete old volume and the created new one with
             # idential name. The mapping status will be kept.
             # Hence we don't expose volume UUID here.
-            results.append({
-                'ag_name': node_acl_group.name,
-                'h_lun_id': mapped_lun_group.mapped_lun,
-                'pool_name': pool_name,
-                'vol_name': vol_name,
-            })
+            results.append(
+                {
+                    "ag_name": node_acl_group.name,
+                    "h_lun_id": mapped_lun_group.mapped_lun,
+                    "pool_name": pool_name,
+                    "vol_name": vol_name,
+                }
+            )
 
     return results
 
@@ -506,18 +533,19 @@ def _tpg_lun_of(tpg, pool_name, vol_name):
     try:
         so = BlockStorageObject(so_name)
     except RTSLibError:
-        so = BlockStorageObject(
-            so_name, dev=mod.get_dev_path(pool_name, vol_name))
+        so = BlockStorageObject(so_name, dev=mod.get_dev_path(pool_name, vol_name))
         so.wwn = vol_serial
 
     # export useful scsi model if kernel > 3.8
     with ignored(RTSLibError):
-        so.set_attribute("emulate_model_alias", '1')
+        so.set_attribute("emulate_model_alias", "1")
 
     # only add tpg lun if it doesn't exist
     for tmp_lun in tpg.luns:
-        if tmp_lun.storage_object.name == so.name and \
-                tmp_lun.storage_object.plugin == 'block':
+        if (
+            tmp_lun.storage_object.name == so.name
+            and tmp_lun.storage_object.plugin == "block"
+        ):
             return tmp_lun
     else:
         return LUN(tpg, storage_object=so)
@@ -526,7 +554,7 @@ def _tpg_lun_of(tpg, pool_name, vol_name):
 def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
     tpg = _get_iscsi_tpg()
     tpg.enable = True
-    tpg.set_attribute("authentication", '0')
+    tpg.set_attribute("authentication", "0")
 
     set_portal_addresses(tpg)
 
@@ -537,9 +565,11 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
     if any(tpg_lun.mapped_luns):
         tgt_map_list = access_group_map_list(req)
         for tgt_map in tgt_map_list:
-            if tgt_map['ag_name'] == ag_name and \
-                    tgt_map['pool_name'] == pool_name and \
-                    tgt_map['vol_name'] == vol_name:
+            if (
+                tgt_map["ag_name"] == ag_name
+                and tgt_map["pool_name"] == pool_name
+                and tgt_map["vol_name"] == vol_name
+            ):
                 # Already masked.
                 return None
 
@@ -548,17 +578,21 @@ def access_group_map_create(req, pool_name, vol_name, ag_name, h_lun_id=None):
         # Non-existent access group means volume mapping status will not be
         # stored. This should be considered as an error instead of silently
         # returning.
-        raise TargetdError(TargetdError.NOT_FOUND_ACCESS_GROUP,
-                           "Access group not found")
+        raise TargetdError(
+            TargetdError.NOT_FOUND_ACCESS_GROUP, "Access group not found"
+        )
 
     if h_lun_id is None:
         # Find out next available host LUN ID
         # Assuming max host LUN ID is MAX_LUN
-        free_h_lun_ids = set(range(MAX_LUN + 1)) - \
-                         set([int(x.mapped_lun) for x in tpg_lun.mapped_luns])
+        free_h_lun_ids = set(range(MAX_LUN + 1)) - set(
+            [int(x.mapped_lun) for x in tpg_lun.mapped_luns]
+        )
         if len(free_h_lun_ids) == 0:
-            raise TargetdError(TargetdError.NO_FREE_HOST_LUN_ID,
-                               "All host LUN ID 0 ~ %d is in use" % MAX_LUN)
+            raise TargetdError(
+                TargetdError.NO_FREE_HOST_LUN_ID,
+                "All host LUN ID 0 ~ %d is in use" % MAX_LUN,
+            )
         else:
             h_lun_id = free_h_lun_ids.pop()
 
