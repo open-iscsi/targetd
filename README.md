@@ -14,6 +14,8 @@ which allows admins to configure storage arrays (including targetd) in an array-
 targetd development
 -------------------
 targetd is licensed under the GPLv3. Contributions are welcome.
+Please format code changes using: `black -t py36 .` before submitting
+your request as CI checks formatting.
  
  * Mailing list: [targetd-devel](https://lists.fedorahosted.org/mailman/listinfo/targetd-devel)
  * Source repo: [GitHub](https://github.com/open-iscsi/targetd)
