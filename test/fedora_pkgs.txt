@@ -1,3 +1,4 @@
+black
 btrfs-progs
 libblockdev-lvm
 libstoragemgmt-targetd-plugin
