@@ -79,7 +79,7 @@ def jsonrequest(method, params=None):
             response_obj = urlopen(request, context=ctx)
         else:
             response_obj = urlopen(request)
-    except socket.error as e:
+    except socket.error:
         print("error, retrying with SSL")
         url = "https://%s:%s%s" % (host, port, path)
         request = Request(url, data, headers)
