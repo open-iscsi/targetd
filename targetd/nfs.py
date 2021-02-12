@@ -40,15 +40,17 @@ class Export(object):
     INSECURE = 0x00008000
     NO_ALL_SQUASH = 0x00010000
 
-    _conflicting = (((RW | RO), "Both RO & RW set"),
-                    ((INSECURE | SECURE), "Both INSECURE & SECURE set"),
-                    ((SYNC | ASYNC), "Both SYNC & ASYNC set"),
-                    ((HIDE | NOHIDE), "Both HIDE & NOHIDE set"),
-                    ((WDELAY | NO_WDELAY), "Both WDELAY & NO_WDELAY set"),
-                    ((ROOT_SQUASH | NO_ROOT_SQUASH),
-                     "Only one option of ROOT_SQUASH, NO_ROOT_SQUASH, "
-                     "can be specified")
-                    )
+    _conflicting = (
+        ((RW | RO), "Both RO & RW set"),
+        ((INSECURE | SECURE), "Both INSECURE & SECURE set"),
+        ((SYNC | ASYNC), "Both SYNC & ASYNC set"),
+        ((HIDE | NOHIDE), "Both HIDE & NOHIDE set"),
+        ((WDELAY | NO_WDELAY), "Both WDELAY & NO_WDELAY set"),
+        (
+            (ROOT_SQUASH | NO_ROOT_SQUASH),
+            "Only one option of ROOT_SQUASH, NO_ROOT_SQUASH, " "can be specified",
+        ),
+    )
 
     bool_option = {
         "secure": SECURE,
@@ -67,7 +69,7 @@ class Export(object):
         "hide": HIDE,
         "insecure": INSECURE,
         "no_root_squash": NO_ROOT_SQUASH,
-        "no_all_squash": NO_ALL_SQUASH
+        "no_all_squash": NO_ALL_SQUASH,
     }
 
     key_pair = dict(
@@ -78,7 +80,8 @@ class Export(object):
         replicas=str,
         anonuid=int,
         anongid=int,
-        sec=str)
+        sec=str,
+    )
 
     export_regex = r"([\/a-zA-Z0-9\.\-_]+)[\s]+(.+)\((.+)\)"
     octal_nums_regex = r"""\\([0-7][0-7][0-7])"""
@@ -96,18 +99,18 @@ class Export(object):
             if isinstance(kp, dict):
                 for k, v in kp.items():
                     if k not in Export.key_pair:
-                        raise ValueError('option %s not valid' % k)
+                        raise ValueError("option %s not valid" % k)
 
                 return kp
             else:
-                raise ValueError('key_value_options domain is None or dict')
+                raise ValueError("key_value_options domain is None or dict")
         else:
             return {}
 
     def __init__(self, host, path, bit_wise_options=0, key_value_options=None):
 
-        if host == '<world>':
-            self.host = '*'
+        if host == "<world>":
+            self.host = "*"
         else:
             self.host = host
         self.path = path
@@ -120,11 +123,11 @@ class Export(object):
         pairs = {}
 
         if len(options_string):
-            options = options_string.split(',')
+            options = options_string.split(",")
             for o in options:
-                if '=' in o:
+                if "=" in o:
                     # We have a key=value
-                    key, value = o.split('=')
+                    key, value = o.split("=")
                     pairs[key] = value
                 else:
                     bits |= Export.bool_option[o]
@@ -159,9 +162,9 @@ class Export(object):
         culled = Export._override(culled, sbit, Export.SYNC, Export.ASYNC)
         culled = Export._override(culled, sbit, Export.HIDE, Export.NOHIDE)
         culled = Export._override(culled, sbit, Export.WDELAY, Export.NO_WDELAY)
-        culled = Export._override(culled, sbit,
-                                  Export.ROOT_SQUASH,
-                                  Export.NO_ROOT_SQUASH)
+        culled = Export._override(
+            culled, sbit, Export.ROOT_SQUASH, Export.NO_ROOT_SQUASH
+        )
 
         gpairs.update(spairs)
         return culled, gpairs
@@ -171,8 +174,8 @@ class Export(object):
         rc = []
 
         try:
-            global_options = ''
-            options = ''
+            global_options = ""
+            options = ""
             if len(tokens) >= 1:
                 path = tokens[0]
 
@@ -180,25 +183,27 @@ class Export(object):
                     for t in tokens[1:]:
 
                         # Handle global options
-                        if t[0] == '-' and not global_options:
+                        if t[0] == "-" and not global_options:
                             global_options = t[1:]
                             continue
 
                         # Check for a host or a host with an options group
-                        if '(' and ')' in t:
-                            if t[0] != '(':
-                                host, options = t[:-1].split('(')
+                        if "(" and ")" in t:
+                            if t[0] != "(":
+                                host, options = t[:-1].split("(")
                             else:
-                                host = '*'
+                                host = "*"
                                 options = t[1:-1]
                         else:
                             host = t
 
                         rc.append(
-                            Export(host, path,
-                                   *Export.parse_opt(global_options, options)))
+                            Export(
+                                host, path, *Export.parse_opt(global_options, options)
+                            )
+                        )
                 else:
-                    rc.append(Export('*', path))
+                    rc.append(Export("*", path))
 
         except Exception as e:
             log.error("parse_export: %s" % str(e))
@@ -212,8 +217,7 @@ class Export(object):
 
         with open(f, "r") as e_f:
             for line in e_f:
-                exp = Export.parse_export(
-                    shlex.split(Export._chr_encode(line), '#'))
+                exp = Export.parse_export(shlex.split(Export._chr_encode(line), "#"))
                 if exp:
                     rc.extend(exp)
 
@@ -225,8 +229,7 @@ class Export(object):
         pattern = re.compile(Export.export_regex)
 
         for m in re.finditer(pattern, export_text):
-            rc.append(
-                Export(m.group(2), m.group(1), *Export.parse_opt(m.group(3))))
+            rc.append(Export(m.group(2), m.group(1), *Export.parse_opt(m.group(3))))
         return rc
 
     def options_list(self):
@@ -236,26 +239,32 @@ class Export(object):
                 rc.append(k)
 
         for k, v in self.key_value_options.items():
-            rc.append('%s=%s' % (k, v))
+            rc.append("%s=%s" % (k, v))
 
         return rc
 
     def options_string(self):
-        return ','.join(self.options_list())
+        return ",".join(self.options_list())
 
     @staticmethod
     def _double_quote_space(s):
-        if ' ' in s:
+        if " " in s:
             return '"%s"' % s
         return s
 
     def __repr__(self):
-        return "%s %s(%s)" % (Export._double_quote_space(self.path).ljust(50),
-                              self.host, self.options_string())
+        return "%s %s(%s)" % (
+            Export._double_quote_space(self.path).ljust(50),
+            self.host,
+            self.options_string(),
+        )
 
     def export_file_format(self):
-        return "%s %s(%s)\n" % (Export._double_quote_space(self.path),
-                                self.host, self.options_string())
+        return "%s %s(%s)\n" % (
+            Export._double_quote_space(self.path),
+            self.host,
+            self.options_string(),
+        )
 
     @staticmethod
     def _chr_encode(s):
@@ -264,7 +273,7 @@ class Export(object):
         p = re.compile(Export.octal_nums_regex)
 
         for m in re.finditer(p, s):
-            s = s.replace('\\' + m.group(1), chr(int(m.group(1), 8)))
+            s = s.replace("\\" + m.group(1), chr(int(m.group(1), 8)))
 
         return s
 
@@ -276,10 +285,11 @@ class Nfs(object):
     """
     Python module for configuring NFS exports
     """
-    CMD = 'exportfs'
-    EXPORT_FILE = 'targetd.exports'
-    EXPORT_FS_CONFIG_DIR = os.getenv("TARGETD_NFS_EXPORT_DIR", '/etc/exports.d')
-    MAIN_EXPORT_FILE = os.getenv("TARGETD_NFS_EXPORT", '/etc/exports')
+
+    CMD = "exportfs"
+    EXPORT_FILE = "targetd.exports"
+    EXPORT_FS_CONFIG_DIR = os.getenv("TARGETD_NFS_EXPORT_DIR", "/etc/exports.d")
+    MAIN_EXPORT_FILE = os.getenv("TARGETD_NFS_EXPORT", "/etc/exports")
 
     @staticmethod
     def security_options():
@@ -298,7 +308,7 @@ class Nfs(object):
         user_exports = Export.parse_exports_file(Nfs.MAIN_EXPORT_FILE)
 
         # Recreate all existing exports
-        with open(config_file, 'w') as ef:
+        with open(config_file, "w") as ef:
             for e in Nfs.exports():
                 if e not in user_exports:
                     ef.write(e.export_file_format())
@@ -308,7 +318,7 @@ class Nfs(object):
         """
         Return list of exports
         """
-        ec, out, error = invoke([Nfs.CMD, '-v'])
+        ec, out, error = invoke([Nfs.CMD, "-v"])
         rc = Export.parse_exportfs_output(out)
         return rc
 
@@ -323,9 +333,9 @@ class Nfs(object):
         cmd = [Nfs.CMD]
 
         if len(options):
-            cmd.extend(['-o', options])
+            cmd.extend(["-o", options])
 
-        cmd.extend(['%s:%s' % (host, path)])
+        cmd.extend(["%s:%s" % (host, path)])
 
         ec, out, err = invoke(cmd, False)
         if ec == 0:
@@ -334,14 +344,14 @@ class Nfs(object):
         elif ec == 22:
             raise ValueError("Invalid option: %s" % err)
         else:
-            raise RuntimeError('Unexpected exit code "%s" %s, out= %s' %
-                               (str(cmd), str(ec), str(out + ":" + err)))
+            raise RuntimeError(
+                'Unexpected exit code "%s" %s, out= %s'
+                % (str(cmd), str(ec), str(out + ":" + err))
+            )
 
     @staticmethod
     def export_remove(export):
-        ec, out, err = invoke(
-            [Nfs.CMD, '-u',
-             '%s:%s' % (export.host, export.path)])
+        ec, out, err = invoke([Nfs.CMD, "-u", "%s:%s" % (export.host, export.path)])
 
         if ec == 0:
             Nfs._save_exports()

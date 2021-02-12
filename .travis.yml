@@ -6,6 +6,8 @@ dist: bionic
 language: c
 
 before_install:
+  - sudo apt-get install -y python3-setuptools
+  - sudo apt-get install -y python3-pip
   - sudo apt-get install -y python-dev
   - sudo apt-get install -y python3
   - sudo apt-get install -y python3-dev

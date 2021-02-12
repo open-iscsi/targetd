@@ -18,11 +18,11 @@ def jsonrequest(method, params=None, data=None):
 
 
 def _rs(length):
-    return ''.join(random.choice(string.ascii_lowercase) for _ in range(length))
+    return "".join(random.choice(string.ascii_lowercase) for _ in range(length))
 
 
 def r_iqn():
-    return 'iqn.1994-05.com.domain:01.' + _rs(6)
+    return "iqn.1994-05.com.domain:01." + _rs(6)
 
 
 def rs(prefix="td", length=4):
@@ -32,12 +32,11 @@ def rs(prefix="td", length=4):
     rp = _rs(length)
 
     if prefix is not None:
-        return '%s_%s' % (prefix, rp)
+        return "%s_%s" % (prefix, rp)
     return rp
 
 
 class TargetdObj(object):
-
     @staticmethod
     def build(objhash):
         o = TargetdObj()
@@ -46,7 +45,7 @@ class TargetdObj(object):
 
     def __getattr__(self, k):
         if k in self.rpc:
-            if k in ['size', 'free_size']:
+            if k in ["size", "free_size"]:
                 return int(self.rpc[k])
             return self.rpc[k]
         # Not present for FS pools
@@ -54,8 +53,8 @@ class TargetdObj(object):
             return None
         else:
             raise AttributeError(
-                "'TargetdObj' object %s has no attribute '%s'" %
-                (str(self), k))
+                "'TargetdObj' object %s has no attribute '%s'" % (str(self), k)
+            )
 
     def __str__(self):
         s = ""
@@ -65,18 +64,19 @@ class TargetdObj(object):
 
 
 class NoDaemon(unittest.TestCase):
-
     def test_gp_nfs_export_parse(self):
         # sample taken from "man 5 exports"
-        sample = "# sample /etc/exports file\n" \
-               "/           master(rw) trusty(rw,no_root_squash)\n" \
-               "/projects   proj*.local.domain(rw)\n" \
-               "/usr        *.local.domain(ro) @trusted(rw)\n" \
-               "/home/joe   pc001(rw,all_squash,anonuid=150,anongid=100)\n" \
-               "/pub        *(ro,insecure,all_squash)\n" \
-               "/srv/www    -sync,rw server @trusted @external(ro)\n" \
-               "/foo        2001:db8:9:e54::/64(rw) 192.0.2.0/24(rw)\n" \
-               "/build      buildhost[0-9].local.domain(rw)\n"
+        sample = (
+            "# sample /etc/exports file\n"
+            "/           master(rw) trusty(rw,no_root_squash)\n"
+            "/projects   proj*.local.domain(rw)\n"
+            "/usr        *.local.domain(ro) @trusted(rw)\n"
+            "/home/joe   pc001(rw,all_squash,anonuid=150,anongid=100)\n"
+            "/pub        *(ro,insecure,all_squash)\n"
+            "/srv/www    -sync,rw server @trusted @external(ro)\n"
+            "/foo        2001:db8:9:e54::/64(rw) 192.0.2.0/24(rw)\n"
+            "/build      buildhost[0-9].local.domain(rw)\n"
+        )
 
         with open("/tmp/sample", "w") as f:
             f.write(sample)
@@ -85,18 +85,34 @@ class NoDaemon(unittest.TestCase):
         self.assertGreater(len(result), 1)
 
     def test_ep_export(self):
-        self.assertRaises(ValueError, nfs.Export,
-                          "localhost", "/mnt/foo",
-                          nfs.Export.RW | nfs.Export.RO)
-        self.assertRaises(ValueError, nfs.Export,
-                          "localhost", "/mnt/foo",
-                          nfs.Export.INSECURE | nfs.Export.SECURE)
-        self.assertRaises(ValueError, nfs.Export,
-                          "localhost", "/mnt/foo",
-                          nfs.Export.SYNC | nfs.Export.ASYNC)
-        self.assertRaises(ValueError, nfs.Export,
-                          "localhost", "/mnt/foo",
-                          nfs.Export.HIDE | nfs.Export.NOHIDE)
+        self.assertRaises(
+            ValueError,
+            nfs.Export,
+            "localhost",
+            "/mnt/foo",
+            nfs.Export.RW | nfs.Export.RO,
+        )
+        self.assertRaises(
+            ValueError,
+            nfs.Export,
+            "localhost",
+            "/mnt/foo",
+            nfs.Export.INSECURE | nfs.Export.SECURE,
+        )
+        self.assertRaises(
+            ValueError,
+            nfs.Export,
+            "localhost",
+            "/mnt/foo",
+            nfs.Export.SYNC | nfs.Export.ASYNC,
+        )
+        self.assertRaises(
+            ValueError,
+            nfs.Export,
+            "localhost",
+            "/mnt/foo",
+            nfs.Export.HIDE | nfs.Export.NOHIDE,
+        )
 
     def test_gp_export_compare(self):
         i1 = nfs.Export("localhost", "/mnt/foo", nfs.Export.RW)
@@ -108,7 +124,6 @@ class NoDaemon(unittest.TestCase):
 
 
 class TestConnect(unittest.TestCase):
-
     def _test_ep_bad_auth(self, username=True):
 
         existing_user = testlib.user
@@ -131,7 +146,7 @@ class TestConnect(unittest.TestCase):
             testlib.password = existing_pw
 
         self.assertEqual(error_code, 401, "testing bad auth.")
-        self.assertGreaterEqual(end-start, 1, "Expecting delayed response")
+        self.assertGreaterEqual(end - start, 1, "Expecting delayed response")
 
     def test_ep_bad_auth(self):
         self._test_ep_bad_auth()
@@ -151,8 +166,9 @@ class TestConnect(unittest.TestCase):
             if exception:
                 pass
             else:
-                self.assertTrue((result.status_code == 401 or
-                                 result.status_code == 503))
+                self.assertTrue(
+                    (result.status_code == 401 or result.status_code == 503)
+                )
         end = time.time()
         diff = end - start
         self.assertTrue((diff > 1 or diff < 3), "Not expected %s" % (str(diff)))
@@ -202,9 +218,8 @@ class TestConnect(unittest.TestCase):
         params = None
 
         data = json.dumps(
-            dict(id=100,
-                 method=method,
-                 params=params, jsonrpc="not_a_version")).encode('utf-8')
+            dict(id=100, method=method, params=params, jsonrpc="not_a_version")
+        ).encode("utf-8")
 
         error_code = 0
         try:
@@ -219,13 +234,16 @@ class TestConnect(unittest.TestCase):
         params = None
 
         data = json.dumps(
-            dict(id=100,
-                 method=method,
-                 params=params, jsonrpc="2.0")).encode('utf-8')
+            dict(id=100, method=method, params=params, jsonrpc="2.0")
+        ).encode("utf-8")
 
-        self.assertRaises(ConnectionError,
-                          jsonrequest,
-                          method, params=None, data=data[0:len(data) - 10])
+        self.assertRaises(
+            ConnectionError,
+            jsonrequest,
+            method,
+            params=None,
+            data=data[0 : len(data) - 10],
+        )
 
     def test_gp_simple(self):
         # Basic good path
@@ -247,16 +265,17 @@ class TestConnect(unittest.TestCase):
 
 
 class TestTargetd(unittest.TestCase):
-
     @staticmethod
     def _pools():
         return [TargetdObj.build(x) for x in jsonrequest("pool_list")]
 
     @staticmethod
     def _block_pools():
-        return [TargetdObj.build(x)
-                for x in jsonrequest("pool_list")
-                if x['type'] == 'block']
+        return [
+            TargetdObj.build(x)
+            for x in jsonrequest("pool_list")
+            if x["type"] == "block"
+        ]
 
     @staticmethod
     def _vol_create(pool, name, size=1024 * 1024 * 100):
@@ -267,38 +286,33 @@ class TestTargetd(unittest.TestCase):
     def _vol_destroy(self, pool, vol):
         jsonrequest("vol_destroy", dict(pool=pool.name, name=vol.name))
         missing_volume = TestTargetd._vol_list(pool, vol.name)
-        self.assertEqual(len(missing_volume), 0,
-                         "Expected destroyed volume to not be in vol_list")
+        self.assertEqual(
+            len(missing_volume), 0, "Expected destroyed volume to not be in vol_list"
+        )
 
     @staticmethod
     def _vol_copy(pool, vol_orig, vol_new_name, size=None):
-        jsonrequest("vol_copy",
-                    dict(
-                        pool=pool.name,
-                        vol_orig=vol_orig.name,
-                        vol_new=vol_new_name,
-                        size=size))
+        jsonrequest(
+            "vol_copy",
+            dict(
+                pool=pool.name, vol_orig=vol_orig.name, vol_new=vol_new_name, size=size
+            ),
+        )
         return TestTargetd._vol_list(pool, vol_new_name)[0]
 
     @staticmethod
     def _vol_resize(pool, name, size):
-        jsonrequest("vol_resize",
-                    dict(
-                        pool=pool.name,
-                        name=name,
-                        size=size))
+        jsonrequest("vol_resize", dict(pool=pool.name, name=name, size=size))
 
     @staticmethod
     def _fs_create(pool, name, size=1024 * 1024 * 100):
-        jsonrequest("fs_create",
-                    dict(pool_name=pool.name, name=name, size_bytes=size))
+        jsonrequest("fs_create", dict(pool_name=pool.name, name=name, size_bytes=size))
         # just created, get it and return
         return TestTargetd._fs_list(name)[0]
 
     @staticmethod
     def _fs_clone(fs, dest_fs_name, snapshot_id=""):
-        args = dict(fs_uuid=fs.uuid, dest_fs_name=dest_fs_name,
-                    snapshot_id=snapshot_id)
+        args = dict(fs_uuid=fs.uuid, dest_fs_name=dest_fs_name, snapshot_id=snapshot_id)
         jsonrequest("fs_clone", args)
         return TestTargetd._fs_list(dest_fs_name)[0]
 
@@ -314,36 +328,37 @@ class TestTargetd(unittest.TestCase):
         jsonrequest("fs_snapshot", args)
         end = time.time() + delta
         search = TestTargetd._ss_list(fs, dest_ss_name)
-        self.assertEqual(len(search), 1,
-                         "expecting to find newly created snapshot %s" % fs)
+        self.assertEqual(
+            len(search), 1, "expecting to find newly created snapshot %s" % fs
+        )
         found = search[0]
         ts = int(found.timestamp)
         self.assertTrue(
             (start <= ts <= end),
-            "Snapshot timestamp is out of range? (%d .. %d .. %d)" %
-            (start, ts, end))
+            "Snapshot timestamp is out of range? (%d .. %d .. %d)" % (start, ts, end),
+        )
         return found
 
     def _fs_destroy(self, fs):
         jsonrequest("fs_destroy", dict(uuid=fs.uuid))
         fs_list = TestTargetd._fs_list()
         matched = [x for x in fs_list if x.uuid == fs.uuid]
-        self.assertEqual(len(matched), 0,
-                         "Expected destroyed fs to not be in fs_list")
+        self.assertEqual(len(matched), 0, "Expected destroyed fs to not be in fs_list")
 
     def _fs_snapshot_delete(self, fs, ss):
-        jsonrequest(
-            "fs_snapshot_delete", dict(fs_uuid=fs.uuid, ss_uuid=ss.uuid))
+        jsonrequest("fs_snapshot_delete", dict(fs_uuid=fs.uuid, ss_uuid=ss.uuid))
 
         search = TestTargetd._ss_list(fs, ss.name)
-        self.assertEqual(len(search), 0,
-                         "Expected deleted ss to not be in ss_list %s" % ss)
+        self.assertEqual(
+            len(search), 0, "Expected deleted ss to not be in ss_list %s" % ss
+        )
 
     @staticmethod
     def _vol_list(pool, name=None):
 
-        vols = [TargetdObj.build(x)
-                for x in jsonrequest("vol_list", dict(pool=pool.name))]
+        vols = [
+            TargetdObj.build(x) for x in jsonrequest("vol_list", dict(pool=pool.name))
+        ]
 
         if name:
             return [x for x in vols if x.name == name]
@@ -352,8 +367,7 @@ class TestTargetd(unittest.TestCase):
     @staticmethod
     def _fs_list(name=None):
 
-        fs = [TargetdObj.build(x)
-              for x in jsonrequest("fs_list", dict())]
+        fs = [TargetdObj.build(x) for x in jsonrequest("fs_list", dict())]
 
         if name:
             return [x for x in fs if x.name == name]
@@ -361,23 +375,27 @@ class TestTargetd(unittest.TestCase):
 
     @staticmethod
     def _ss_list(fs, name=None):
-        ss = [TargetdObj.build(x)
-              for x in jsonrequest("ss_list", dict(fs_uuid=fs.uuid))]
+        ss = [
+            TargetdObj.build(x) for x in jsonrequest("ss_list", dict(fs_uuid=fs.uuid))
+        ]
         if name:
             return [x for x in ss if x.name == name]
         return ss
 
     @staticmethod
     def _fs_pools():
-        return [TargetdObj.build(x)
-                for x in jsonrequest("pool_list")
-                if x['type'] == 'fs']
+        return [
+            TargetdObj.build(x) for x in jsonrequest("pool_list") if x["type"] == "fs"
+        ]
 
     @staticmethod
     def _initiator_list(standalone=False, wwid=None):
-        initiators = [TargetdObj.build(x)
-                      for x in jsonrequest("initiator_list",
-                                           dict(standalone_only=str(standalone)))]
+        initiators = [
+            TargetdObj.build(x)
+            for x in jsonrequest(
+                "initiator_list", dict(standalone_only=str(standalone))
+            )
+        ]
         if wwid:
             return [x for x in initiators if x.init_id == wwid]
         return initiators
@@ -389,14 +407,20 @@ class TestTargetd(unittest.TestCase):
         :param st: search_tuple (pool_name, vol_name, initiator_wwn, lun)
         :return: list of exports
         """
-        exports = [TargetdObj.build(x)
-                   for x in jsonrequest("export_list")]
+        exports = [TargetdObj.build(x) for x in jsonrequest("export_list")]
 
         if st is None:
             return exports
-        return [x for x in exports
-                if (st[0] == x.pool and st[1] == x.vol_name and
-                    st[2] == x.initiator_wwn and st[3] == x.lun)]
+        return [
+            x
+            for x in exports
+            if (
+                st[0] == x.pool
+                and st[1] == x.vol_name
+                and st[2] == x.initiator_wwn
+                and st[3] == x.lun
+            )
+        ]
 
     def _export_create(self, pool, vol, initiator_wwn=None, lun=0):
 
@@ -405,34 +429,36 @@ class TestTargetd(unittest.TestCase):
 
         jsonrequest(
             "export_create",
-            dict(
-                pool=pool.name, vol=vol.name, initiator_wwn=initiator_wwn,
-                lun=lun))
+            dict(pool=pool.name, vol=vol.name, initiator_wwn=initiator_wwn, lun=lun),
+        )
 
-        result = TestTargetd._export_list(
-            (pool.name, vol.name, initiator_wwn, lun))
+        result = TestTargetd._export_list((pool.name, vol.name, initiator_wwn, lun))
 
-        self.assertEqual(len(result), 1,
-                         "Expected 1 found export that we just created!")
+        self.assertEqual(
+            len(result), 1, "Expected 1 found export that we just created!"
+        )
 
         initiator = TestTargetd._initiator_list(wwid=initiator_wwn)
-        self.assertEqual(len(initiator), 1,
-                         "Expected 1 found for initiator list")
+        self.assertEqual(len(initiator), 1, "Expected 1 found for initiator list")
 
         return result[0]
 
     def _export_destroy(self, export):
-        jsonrequest("export_destroy",
-                    dict(pool=export.pool,
-                         vol=export.vol_name,
-                         initiator_wwn=export.initiator_wwn))
+        jsonrequest(
+            "export_destroy",
+            dict(
+                pool=export.pool,
+                vol=export.vol_name,
+                initiator_wwn=export.initiator_wwn,
+            ),
+        )
 
         expect_not_found = TestTargetd._export_list(
-            (export.pool, export.vol_name, export.initiator_wwn, export.lun))
+            (export.pool, export.vol_name, export.initiator_wwn, export.lun)
+        )
         self.assertEqual(len(expect_not_found), 0, "expect export gone!")
         initiator = TestTargetd._initiator_list(wwid=export.initiator_wwn)
-        self.assertEqual(len(initiator), 0,
-                         "Expected 1 found for initiator list")
+        self.assertEqual(len(initiator), 0, "Expected 1 found for initiator list")
 
     @staticmethod
     def _nfs_export_list(st=None):
@@ -441,29 +467,29 @@ class TestTargetd(unittest.TestCase):
         :param st: search_tuple (host, path, options)
         :return: list of nfs exports
         """
-        exports = [TargetdObj.build(x)
-                   for x in jsonrequest("nfs_export_list")]
+        exports = [TargetdObj.build(x) for x in jsonrequest("nfs_export_list")]
 
         if st is None:
             return exports
-        return [x for x in exports
-                if (st[0] == x.host and st[1] == x.path)]
+        return [x for x in exports if (st[0] == x.host and st[1] == x.path)]
 
     def _nfs_export_add(self, host, path, options, chown=None):
 
-        answer = TargetdObj.build(jsonrequest(
-            "nfs_export_add",
-            dict(
-                host=host, path=path, options=options, chown=chown)))
+        answer = TargetdObj.build(
+            jsonrequest(
+                "nfs_export_add",
+                dict(host=host, path=path, options=options, chown=chown),
+            )
+        )
 
         self.assertEqual(answer.host, host)
         self.assertEqual(answer.path, path)
 
-        result = TestTargetd._nfs_export_list(
-            (host, path))
+        result = TestTargetd._nfs_export_list((host, path))
 
-        self.assertEqual(len(result), 1,
-                         "Expected 1 found export that we just created!")
+        self.assertEqual(
+            len(result), 1, "Expected 1 found export that we just created!"
+        )
 
         return answer
 
@@ -474,12 +500,9 @@ class TestTargetd(unittest.TestCase):
         :param path: the path associated with the export
         :return: None
         """
-        jsonrequest("nfs_export_remove",
-                    dict(host=host,
-                         path=path))
+        jsonrequest("nfs_export_remove", dict(host=host, path=path))
 
-        expect_not_found = TestTargetd._nfs_export_list(
-            (host, path))
+        expect_not_found = TestTargetd._nfs_export_list((host, path))
         self.assertEqual(len(expect_not_found), 0, "expect export gone!")
 
     def test_gp_pool_list(self):
@@ -489,11 +512,10 @@ class TestTargetd(unittest.TestCase):
         for i in p:
             self.assertGreater(len(i.name), 0, "Name should not be empty")
             self.assertGreater(i.size, 0, "Pool size should not be 0")
-            self.assertTrue(i.type == 'fs' or i.type == 'block')
+            self.assertTrue(i.type == "fs" or i.type == "block")
             self.assertTrue(i.free_size <= i.size)
-            if i.type == 'fs':
-                self.assertIsNone(i.uuid,
-                                  "file pool have no uuid %s" % i)
+            if i.type == "fs":
+                self.assertIsNone(i.uuid, "file pool have no uuid %s" % i)
 
     def test_gp_vol_create_copy_destroy_operations(self):
         for block_pool in self._block_pools():
@@ -631,7 +653,8 @@ class TestTargetd(unittest.TestCase):
         for e in exports:
             # Check search for specific is working
             export = TestTargetd._export_list(
-                (e.pool, e.vol_name, e.initiator_wwn, e.lun))
+                (e.pool, e.vol_name, e.initiator_wwn, e.lun)
+            )
             self.assertEqual(len(export), 1, "expect to find existing export")
 
         if len(exports) == 0:
@@ -654,8 +677,7 @@ class TestTargetd(unittest.TestCase):
                 TestTargetd._vol_create(block_pool, vol_name)
             except TargetdError as e:
                 error_code = e.error
-            self.assertTrue(error_code == TargetdError.NAME_CONFLICT,
-                            block_pool)
+            self.assertTrue(error_code == TargetdError.NAME_CONFLICT, block_pool)
 
             error_code = 1
             try:
@@ -663,25 +685,23 @@ class TestTargetd(unittest.TestCase):
             except TargetdError as e:
                 error_code = e.error
 
-            self.assertTrue(error_code == TargetdError.NAME_CONFLICT,
-                            block_pool)
+            self.assertTrue(error_code == TargetdError.NAME_CONFLICT, block_pool)
 
             self._vol_destroy(block_pool, vol)
 
     def test_ep_non_existent_vol_destroy(self):
-        vol = TargetdObj.build(dict(name='no_such_volume_'))
+        vol = TargetdObj.build(dict(name="no_such_volume_"))
         for block_pool in self._block_pools():
             error_code = 1
             try:
                 self._vol_destroy(block_pool, vol)
             except TargetdError as e:
                 error_code = e.error
-            self.assertEqual(error_code,
-                             TargetdError.NOT_FOUND_VOLUME, block_pool)
+            self.assertEqual(error_code, TargetdError.NOT_FOUND_VOLUME, block_pool)
 
     def test_ep_non_existent_pool(self):
-        pool = TargetdObj.build(dict(name='no_such_pool_'))
-        vol = TargetdObj.build(dict(name='no_such_volume_'))
+        pool = TargetdObj.build(dict(name="no_such_pool_"))
+        vol = TargetdObj.build(dict(name="no_such_volume_"))
         error_code = 1
         try:
             self._vol_destroy(pool, vol)
@@ -739,9 +759,7 @@ class TestTargetd(unittest.TestCase):
             except TargetdError as e:
                 error_code = e.error
 
-            self.assertEqual(error_code,
-                             TargetdError.EXISTS_CLONE_NAME,
-                             fs_pool)
+            self.assertEqual(error_code, TargetdError.EXISTS_CLONE_NAME, fs_pool)
 
             self._fs_destroy(clone)
             self._fs_destroy(fs)
@@ -761,9 +779,7 @@ class TestTargetd(unittest.TestCase):
             finally:
                 fs.uuid = uuid
 
-            self.assertEqual(error_code,
-                             TargetdError.NOT_FOUND_FS,
-                             fs_pool)
+            self.assertEqual(error_code, TargetdError.NOT_FOUND_FS, fs_pool)
             self._fs_destroy(fs)
 
     def test_gp_fs_snapshot(self):
@@ -814,8 +830,8 @@ class TestTargetd(unittest.TestCase):
         try:
             jsonrequest(
                 "vol_create",
-                dict(pool=rs(length=20), name="wont_create",
-                     size=1024 * 1024 * 100))
+                dict(pool=rs(length=20), name="wont_create", size=1024 * 1024 * 100),
+            )
         except TargetdError as e:
             error_code = e.error
 
@@ -826,8 +842,12 @@ class TestTargetd(unittest.TestCase):
         try:
             jsonrequest(
                 "fs_create",
-                dict(pool_name=rs(length=10), name="whatever",
-                     size_bytes=1024 * 1024 * 100))
+                dict(
+                    pool_name=rs(length=10),
+                    name="whatever",
+                    size_bytes=1024 * 1024 * 100,
+                ),
+            )
         except TargetdError as e:
             error_code = e.error
 
@@ -848,9 +868,11 @@ class TestTargetd(unittest.TestCase):
                 error_code = e.error
 
             self.assertEqual(
-                error_code, TargetdError.NOT_FOUND_SS,
+                error_code,
+                TargetdError.NOT_FOUND_SS,
                 " fs_snapshot_delete expecting NOT_FOUND_SS when trying to"
-                " delete the snapshot with incorrect uuid")
+                " delete the snapshot with incorrect uuid",
+            )
 
             ss.uuid = uuid
             self._fs_snapshot_delete(fs, ss)
@@ -872,9 +894,11 @@ class TestTargetd(unittest.TestCase):
             except TargetdError as e:
                 error_code = e.error
             self.assertEqual(
-                error_code, TargetdError.NOT_FOUND_FS,
+                error_code,
+                TargetdError.NOT_FOUND_FS,
                 "fs_destroy expecting NOT_FOUND_FS when trying to use ss"
-                " uuid, fs_pool = %s" % fs_pool.name)
+                " uuid, fs_pool = %s" % fs_pool.name,
+            )
 
             self._fs_destroy(fs)
 
@@ -897,8 +921,9 @@ class TestTargetd(unittest.TestCase):
     def test_gp_nfs_export_add_chown_uid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export = self._nfs_export_add("0.0.0.0/0", fs.full_path,
-                                          ["insecure", "ro"], "1000")
+            export = self._nfs_export_add(
+                "0.0.0.0/0", fs.full_path, ["insecure", "ro"], "1000"
+            )
             self._nfs_export_remove(export.host, export.path)
             self._fs_destroy(fs)
 
@@ -908,20 +933,25 @@ class TestTargetd(unittest.TestCase):
 
             error_code = 0
             try:
-                self._nfs_export_add("0.0.0.0/0", fs.full_path,
-                                     ["insecure", "secure"], "1000")
+                self._nfs_export_add(
+                    "0.0.0.0/0", fs.full_path, ["insecure", "secure"], "1000"
+                )
             except TargetdError as e:
                 error_code = e.error
 
             self.assertEqual(
-                error_code, TargetdError.INVALID_ARGUMENT,
-                "Expecting error on conflicting options")
+                error_code,
+                TargetdError.INVALID_ARGUMENT,
+                "Expecting error on conflicting options",
+            )
             self._fs_destroy(fs)
 
     def test_gp_nfs_export_add_chown_uid_gid(self):
         for fs_pool in TestTargetd._fs_pools():
             fs = TestTargetd._fs_create(fs_pool, rs(length=10))
-            export = self._nfs_export_add("0.0.0.0/0", fs.full_path, "insecure", "1000:1000")
+            export = self._nfs_export_add(
+                "0.0.0.0/0", fs.full_path, "insecure", "1000:1000"
+            )
             self._nfs_export_remove(export.host, export.path)
             self._fs_destroy(fs)
 
@@ -934,9 +964,11 @@ class TestTargetd(unittest.TestCase):
             except TargetdError as e:
                 error_code = e.error
             self.assertEqual(
-                error_code, TargetdError.INVALID_ARGUMENT,
+                error_code,
+                TargetdError.INVALID_ARGUMENT,
                 "nfs_export_add expecting INVALID_ARGUMENT when trying to use uid"
-                " as non numerical")
+                " as non numerical",
+            )
             self._fs_destroy(fs)
 
     def tearDown(self):
@@ -967,5 +999,5 @@ class TestTargetd(unittest.TestCase):
                 break
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

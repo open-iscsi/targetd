@@ -32,6 +32,7 @@ if [ -f "/etc/redhat-release" ]; then
 fi
 
 if [ $FEDORA -eq 0 ]; then
+    pip3 install black || exit 10
     COV_CMD=python3-coverage
 else
     COV_CMD=coverage3
@@ -167,6 +168,15 @@ if [ $FEDORA -eq 0 ]; then
         cat /tmp/targetd.log
         clean_up $rc
     fi
+fi
+
+# Make sure we are formatted correctly
+echo "Checking code formatting ..."
+black -t py36 --check --diff .
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Code formatting incorrect, please do $ black -t py36 ."
+    chean_up $rc
 fi
 
 clean_up 0

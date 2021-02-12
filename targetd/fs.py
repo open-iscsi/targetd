@@ -40,27 +40,20 @@ from targetd.utils import TargetdError
 #
 # There may be better ways of utilizing btrfs.
 
-pools = {
-    "zfs": [],
-    "btrfs": []
-}
-pool_modules = {
-    "zfs": zfs,
-    "btrfs": btrfs
-}
+pools = {"zfs": [], "btrfs": []}
+pool_modules = {"zfs": zfs, "btrfs": btrfs}
 
 
 def pool_module(pool_name):
     """
-        Determines the module responsible for the given pool
-        :param pool_name: the pool to determine this for
-        :return: the module responsible for it
+    Determines the module responsible for the given pool
+    :param pool_name: the pool to determine this for
+    :return: the module responsible for it
     """
     for modname, mod in pool_modules.items():
         if mod.has_fs_pool(pool_name):
             return mod
-    raise TargetdError(TargetdError.INVALID_POOL,
-                       "Invalid pool (%s)" % pool_name)
+    raise TargetdError(TargetdError.INVALID_POOL, "Invalid pool (%s)" % pool_name)
 
 
 def initialize(config_dict):
@@ -68,14 +61,16 @@ def initialize(config_dict):
     global pools
     global allow_chown
 
-    allow_chown = config_dict['allow_chown']
+    allow_chown = config_dict["allow_chown"]
 
-    all_fs_pools = list(config_dict['fs_pools'])
+    all_fs_pools = list(config_dict["fs_pools"])
 
     for mount in all_fs_pools:
         if not os.path.exists(mount):
-            raise TargetdError(TargetdError.NOT_FOUND_FS,
-                               'The fs_pool {0} does not exist'.format(mount))
+            raise TargetdError(
+                TargetdError.NOT_FOUND_FS,
+                "The fs_pool {0} does not exist".format(mount),
+            )
 
     for info in Mount.mounted_filesystems():
         if info[Mount.MOUNT_POINT] in all_fs_pools:
@@ -83,10 +78,14 @@ def initialize(config_dict):
             if filesystem in pool_modules:
                 # forward both mountpoint and device to the backend as ZFS prefers its own devices (pool/volume) and
                 # btrfs prefers mount points (/mnt/btrfs). Otherwise ZFS or btrfs needs to ask mounted_filesystems again
-                pools[filesystem].append({"mount": info[Mount.MOUNT_POINT], "device": info[Mount.DEVICE]})
+                pools[filesystem].append(
+                    {"mount": info[Mount.MOUNT_POINT], "device": info[Mount.DEVICE]}
+                )
             else:
-                raise TargetdError(TargetdError.NO_SUPPORT,
-                                   'Unsupported filesystem {0} for pool {1}'.format(info[2], info[1]))
+                raise TargetdError(
+                    TargetdError.NO_SUPPORT,
+                    "Unsupported filesystem {0} for pool {1}".format(info[2], info[1]),
+                )
 
     for modname, mod in pool_modules.items():
         mod.fs_initialize(config_dict, pools[modname])
@@ -126,13 +125,17 @@ def fs_snapshot(req, fs_uuid, dest_ss_name):
     :return:
     """
     fs_ht = _get_fs_by_uuid(req, fs_uuid)
-    pool_module(fs_ht['pool']).fs_snapshot(req, fs_ht['pool'], fs_ht['name'], dest_ss_name)
+    pool_module(fs_ht["pool"]).fs_snapshot(
+        req, fs_ht["pool"], fs_ht["name"], dest_ss_name
+    )
 
 
 def fs_snapshot_delete(req, fs_uuid, ss_uuid):
     fs_ht = _get_fs_by_uuid(req, fs_uuid)
     snapshot = _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs_ht)
-    pool_module(fs_ht['pool']).fs_snapshot_delete(req, fs_ht['pool'], fs_ht['name'], snapshot['name'])
+    pool_module(fs_ht["pool"]).fs_snapshot_delete(
+        req, fs_ht["pool"], fs_ht["name"], snapshot["name"]
+    )
 
 
 def fs_destroy(req, uuid):
@@ -140,7 +143,7 @@ def fs_destroy(req, uuid):
     # delete.  The API requires a FS to list its RO copies, we may want to
     # reconsider this decision.
     fs_ht = _get_fs_by_uuid(req, uuid)
-    pool_module(fs_ht['pool']).fs_destroy(req, fs_ht['pool'], fs_ht['name'])
+    pool_module(fs_ht["pool"]).fs_destroy(req, fs_ht["pool"], fs_ht["name"])
 
 
 def fs_pools(req):
@@ -169,12 +172,12 @@ def ss(req, fs_uuid, fs_cache=None):
     if fs_cache is None:
         fs_cache = _get_fs_by_uuid(req, fs_uuid)
 
-    return pool_module(fs_cache['pool']).ss(req, fs_cache['pool'], fs_cache['name'])
+    return pool_module(fs_cache["pool"]).ss(req, fs_cache["pool"], fs_cache["name"])
 
 
 def _get_fs_by_uuid(req, fs_uuid):
     for f in fs(req):
-        if f['uuid'] == fs_uuid:
+        if f["uuid"] == fs_uuid:
             return f
     raise TargetdError(TargetdError.NOT_FOUND_FS, "fs_uuid not found")
 
@@ -184,7 +187,7 @@ def _get_ss_by_uuid(req, fs_uuid, ss_uuid, fs_ht=None):
         fs_ht = _get_fs_by_uuid(req, fs_uuid)
 
     for s in ss(req, fs_uuid, fs_ht):
-        if s['uuid'] == ss_uuid:
+        if s["uuid"] == ss_uuid:
             return s
     raise TargetdError(TargetdError.NOT_FOUND_SS, "snapshot not found")
 
@@ -193,11 +196,13 @@ def fs_clone(req, fs_uuid, dest_fs_name, snapshot_id):
     fs_ht = _get_fs_by_uuid(req, fs_uuid)
     if snapshot_id:
         snapshot = _get_ss_by_uuid(req, fs_uuid, snapshot_id)
-        source = snapshot['name']
+        source = snapshot["name"]
     else:
         source = None
 
-    pool_module(fs_ht['pool']).fs_clone(req, fs_ht['pool'], fs_ht['name'], dest_fs_name, source)
+    pool_module(fs_ht["pool"]).fs_clone(
+        req, fs_ht["pool"], fs_ht["name"], dest_fs_name, source
+    )
 
 
 def nfs_export_auth_list(req):
@@ -221,23 +226,27 @@ def nfs_export_add(req, host, path, options=None, chown=None, export_path=None):
             options = []
 
     if export_path is not None:
-        raise TargetdError(TargetdError.NFS_NO_SUPPORT,
-                           "separate export path not supported at "
-                           "this time")
+        raise TargetdError(
+            TargetdError.NFS_NO_SUPPORT,
+            "separate export path not supported at " "this time",
+        )
     bit_opt = 0
     key_opt = {}
 
     for o in options:
-        if '=' in o:
-            k, v = o.split('=')
+        if "=" in o:
+            k, v = o.split("=")
             key_opt[k] = v
         else:
             bit_opt |= Export.bool_option[o]
 
     if chown is not None:
         if not allow_chown:
-            raise TargetdError(TargetdError.NO_SUPPORT, "Chown is disabled. Consult manual before enabling it.")
-        items = chown.split(':')
+            raise TargetdError(
+                TargetdError.NO_SUPPORT,
+                "Chown is disabled. Consult manual before enabling it.",
+            )
+        items = chown.split(":")
         try:
             uid = int(items[0])
             gid = -1
@@ -245,8 +254,9 @@ def nfs_export_add(req, host, path, options=None, chown=None, export_path=None):
                 gid = int(items[1])
             os.chown(path, uid, gid)
         except ValueError as e:
-            raise TargetdError(TargetdError.INVALID_ARGUMENT,
-                               "Wrong chown arguments: {}".format(e))
+            raise TargetdError(
+                TargetdError.INVALID_ARGUMENT, "Wrong chown arguments: {}".format(e)
+            )
     try:
         Nfs.export_add(host, path, bit_opt, key_opt)
     except ValueError as e:
@@ -263,6 +273,7 @@ def nfs_export_remove(req, host, path):
             found = True
 
     if not found:
-        raise TargetdError(TargetdError.NOT_FOUND_NFS_EXPORT,
-                           "NFS export to remove not found %s:%s" %
-                           (host, path))
+        raise TargetdError(
+            TargetdError.NOT_FOUND_NFS_EXPORT,
+            "NFS export to remove not found %s:%s" % (host, path),
+        )

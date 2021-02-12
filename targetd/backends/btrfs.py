@@ -41,7 +41,7 @@ from targetd.utils import invoke, TargetdError
 
 fs_path = "targetd_fs"
 ss_path = "targetd_ss"
-fs_cmd = 'btrfs'
+fs_cmd = "btrfs"
 
 pools = []
 
@@ -49,7 +49,7 @@ pools = []
 def fs_initialize(config_dict, init_pools):
 
     global pools
-    pools = [fs['mount'] for fs in init_pools]
+    pools = [fs["mount"] for fs in init_pools]
 
     for pool in pools:
         # Make sure we have the appropriate subvolumes available
@@ -57,29 +57,29 @@ def fs_initialize(config_dict, init_pools):
             create_sub_volume(os.path.join(pool, fs_path))
             create_sub_volume(os.path.join(pool, ss_path))
         except TargetdError as e:
-            log.error('Unable to create required subvolumes {0} (Btrfs)'.format(e))
+            log.error("Unable to create required subvolumes {0} (Btrfs)".format(e))
             raise
 
 
 def create_sub_volume(p):
     if not os.path.exists(p):
-        invoke([fs_cmd, 'subvolume', 'create', p])
+        invoke([fs_cmd, "subvolume", "create", p])
 
 
 def split_stdout(out):
     """
     Split the text out as an array of text arrays.
     """
-    strip_it = '<FS_TREE>/'
+    strip_it = "<FS_TREE>/"
 
     rc = []
-    for line in out.split('\n'):
-        elem = line.split(' ')
+    for line in out.split("\n"):
+        elem = line.split(" ")
         if len(elem) > 1:
             tmp = []
             for z in elem:
                 if z.startswith(strip_it):
-                    tmp.append(z[len(strip_it):])
+                    tmp.append(z[len(strip_it) :])
                 else:
                     tmp.append(z)
             rc.append(tmp)
@@ -91,15 +91,15 @@ def fs_space_values(mount_point):
     Return a tuple (total, free) from the specified path
     """
     st = os.statvfs(mount_point)
-    free = (st.f_bavail * st.f_frsize)
-    total = (st.f_blocks * st.f_frsize)
+    free = st.f_bavail * st.f_frsize
+    total = st.f_blocks * st.f_frsize
     return total, free
 
 
 def has_fs_pool(pool_name):
     """
-        This can be used to check if module owns given fs_pool without raising
-        exception
+    This can be used to check if module owns given fs_pool without raising
+    exception
     """
     return pool_name in pools
 
@@ -108,9 +108,9 @@ def fs_create(req, pool_name, name, size_bytes):
     full_path = os.path.join(pool_name, fs_path, name)
 
     if not os.path.exists(full_path):
-        invoke([fs_cmd, 'subvolume', 'create', full_path])
+        invoke([fs_cmd, "subvolume", "create", full_path])
     else:
-        raise TargetdError(TargetdError.EXISTS_FS_NAME, 'FS already exists (Btrfs)')
+        raise TargetdError(TargetdError.EXISTS_FS_NAME, "FS already exists (Btrfs)")
 
 
 def fs_snapshot(req, pool, name, dest_ss_name):
@@ -121,20 +121,21 @@ def fs_snapshot(req, pool, name, dest_ss_name):
     create_sub_volume(dest_base)
 
     if os.path.exists(dest_path):
-        raise TargetdError(TargetdError.EXISTS_FS_NAME,
-                           "Snapshot already exists with that name (Btrfs)")
+        raise TargetdError(
+            TargetdError.EXISTS_FS_NAME,
+            "Snapshot already exists with that name (Btrfs)",
+        )
 
-    invoke([fs_cmd, 'subvolume', 'snapshot', '-r', source_path, dest_path])
+    invoke([fs_cmd, "subvolume", "snapshot", "-r", source_path, dest_path])
 
 
 def fs_snapshot_delete(req, pool, name, ss_name):
-    path = os.path.join(pool, ss_path, name,
-                        ss_name)
+    path = os.path.join(pool, ss_path, name, ss_name)
     fs_subvolume_delete(path)
 
 
 def fs_subvolume_delete(path):
-    invoke([fs_cmd, 'subvolume', 'delete', path])
+    invoke([fs_cmd, "subvolume", "delete", path])
 
 
 def fs_destroy(req, pool, name):
@@ -146,7 +147,7 @@ def fs_destroy(req, pool, name):
 
     snapshots = ss(req, pool, name)
     for s in snapshots:
-        fs_subvolume_delete(os.path.join(base_snapshot_dir, s['name']))
+        fs_subvolume_delete(os.path.join(base_snapshot_dir, s["name"]))
 
     if os.path.exists(base_snapshot_dir):
         fs_subvolume_delete(base_snapshot_dir)
@@ -159,7 +160,7 @@ def fs_pools(req):
 
     for pool in pools:
         total, free = fs_space_values(pool)
-        results.append(dict(name=pool, size=total, free_size=free, type='fs'))
+        results.append(dict(name=pool, size=total, free_size=free, type="fs"))
 
     return results
 
@@ -176,12 +177,16 @@ def _invoke_retries(command, throw_exception):
             time.sleep(1)
             continue
         else:
-            raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
-                               "Unexpected exit code %d (Btrfs)" % result)
+            raise TargetdError(
+                TargetdError.UNEXPECTED_EXIT_CODE,
+                "Unexpected exit code %d (Btrfs)" % result,
+            )
 
-    raise TargetdError(TargetdError.UNEXPECTED_EXIT_CODE,
-                       "Unable to execute command after "
-                       "multiple retries %s (Btrfs)" % (str(command)))
+    raise TargetdError(
+        TargetdError.UNEXPECTED_EXIT_CODE,
+        "Unable to execute command after "
+        "multiple retries %s (Btrfs)" % (str(command)),
+    )
 
 
 def fs_hash():
@@ -191,7 +196,8 @@ def fs_hash():
         full_path = os.path.join(pool, fs_path)
 
         result, out, err = _invoke_retries(
-            [fs_cmd, 'subvolume', 'list', '-ua', pool], False)
+            [fs_cmd, "subvolume", "list", "-ua", pool], False
+        )
 
         data = split_stdout(out)
         if len(data):
@@ -201,42 +207,42 @@ def fs_hash():
 
                 prefix = fs_path + os.path.sep
 
-                if sub_vol[:len(prefix)] == prefix:
+                if sub_vol[: len(prefix)] == prefix:
                     key = os.path.join(pool, sub_vol)
                     fs_list[key] = dict(
-                        name=sub_vol[len(prefix):],
+                        name=sub_vol[len(prefix) :],
                         uuid=e[8],
                         total_space=total,
                         free_space=free,
                         pool=pool,
-                        full_path=key
+                        full_path=key,
                     )
 
     return fs_list
 
 
 def ss(req, pool, name):
-    '''
+    """
         Returns the snapshots belonging to this filesystem
     :param req:
     :param pool: pool of the filesystem
     :param name: name of the subvol of this filesystem
     :return: list of snapshots
-    '''
+    """
     snapshots = []
 
     full_path = os.path.join(pool, ss_path, name)
 
     if os.path.exists(full_path):
         result, out, err = _invoke_retries(
-            [fs_cmd, 'subvolume', 'list', '-s', full_path], False)
+            [fs_cmd, "subvolume", "list", "-s", full_path], False
+        )
 
         data = split_stdout(out)
         if len(data):
             for e in data:
                 ts = "%s %s" % (e[10], e[11])
-                time_epoch = int(
-                    time.mktime(time.strptime(ts, '%Y-%m-%d %H:%M:%S')))
+                time_epoch = int(time.mktime(time.strptime(ts, "%Y-%m-%d %H:%M:%S")))
                 st = dict(name=e[-1], uuid=e[-3], timestamp=time_epoch)
                 snapshots.append(st)
 
@@ -245,15 +251,15 @@ def ss(req, pool, name):
 
 def fs_clone(req, pool, name, dest_fs_name, snapshot_name=None):
     if snapshot_name is not None:
-        source = os.path.join(pool, ss_path, name,
-                              snapshot_name)
+        source = os.path.join(pool, ss_path, name, snapshot_name)
         dest = os.path.join(pool, fs_path, dest_fs_name)
     else:
         source = os.path.join(pool, fs_path, name)
         dest = os.path.join(pool, fs_path, dest_fs_name)
 
     if os.path.exists(dest):
-        raise TargetdError(TargetdError.EXISTS_CLONE_NAME,
-                           "Filesystem with that name exists (Btrfs)")
+        raise TargetdError(
+            TargetdError.EXISTS_CLONE_NAME, "Filesystem with that name exists (Btrfs)"
+        )
 
-    invoke([fs_cmd, 'subvolume', 'snapshot', source, dest])
+    invoke([fs_cmd, "subvolume", "snapshot", source, dest])
