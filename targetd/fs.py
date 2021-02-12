@@ -42,6 +42,7 @@ from targetd.utils import TargetdError
 
 pools = {"zfs": [], "btrfs": []}
 pool_modules = {"zfs": zfs, "btrfs": btrfs}
+allow_chown = False
 
 
 def pool_module(pool_name):
