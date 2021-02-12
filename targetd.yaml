@@ -21,3 +21,6 @@ password:
 # if ssl is activated:
 #ssl_cert: /etc/target/targetd_cert.pem
 #ssl_key: /etc/target/targetd_key.pem
+
+# Allow the nfs export API to do a chown on the new export
+# allow_chown: false
