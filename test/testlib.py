@@ -1,7 +1,7 @@
 import requests
 from requests.auth import HTTPBasicAuth
 
-from os import getenv, path
+from os import getenv
 import json
 from targetd.utils import TargetdError
 
