@@ -48,7 +48,6 @@ def set_portal_addresses(tpg):
         NetworkPortal(tpg, a)
 
 
-pools = {"zfs": [], "lvm": []}
 pool_modules = {"zfs": zfs, "lvm": lvm}
 target_name = ""
 addresses = []
@@ -83,7 +82,7 @@ def so_name_module(so_name):
 # config_dict must include block_pools and target_name or we blow up
 #
 def initialize(config_dict):
-    global pools
+    pools = dict()
     pools["lvm"] = list(config_dict["block_pools"])
     pools["zfs"] = list(config_dict["zfs_block_pools"])
 

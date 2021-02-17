@@ -40,8 +40,8 @@ from targetd.utils import TargetdError
 #
 # There may be better ways of utilizing btrfs.
 
-pools = {"zfs": [], "btrfs": []}
 pool_modules = {"zfs": zfs, "btrfs": btrfs}
+allow_chown = False
 
 
 def pool_module(pool_name):
@@ -57,8 +57,7 @@ def pool_module(pool_name):
 
 
 def initialize(config_dict):
-
-    global pools
+    pools = {"zfs": [], "btrfs": []}
     global allow_chown
 
     allow_chown = config_dict["allow_chown"]

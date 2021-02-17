@@ -37,10 +37,7 @@ import base64
 import ssl
 from test import testlib
 
-try:
-    from urllib.request import Request, urlopen
-except ImportError:
-    from urllib2 import Request, urlopen
+from urllib.request import Request, urlopen
 
 user = "admin"
 password = "targetd"
@@ -60,7 +57,9 @@ def jsonrequest(method, params=None):
     print("%s %s" % ("+" * 20, method))
     global id_num
     global use_ssl
-    data = json.dumps(dict(id=id_num, method=method, params=params, jsonrpc="2.0"))
+    data = json.dumps(
+        dict(id=id_num, method=method, params=params, jsonrpc="2.0")
+    ).encode("utf-8")
     id_num += 1
     username_pass = "%s:%s" % (user, password)
     auth = base64.b64encode(username_pass.encode("utf-8")).decode("utf-8")
@@ -75,12 +74,12 @@ def jsonrequest(method, params=None):
         scheme = "http"
     url = "%s://%s:%s%s" % (scheme, host, port, path)
     try:
-        request = Request(url, data.encode("utf-8"), headers)
+        request = Request(url, data, headers)
         if use_ssl:
             response_obj = urlopen(request, context=ctx)
         else:
             response_obj = urlopen(request)
-    except socket.error as e:
+    except socket.error:
         print("error, retrying with SSL")
         url = "https://%s:%s%s" % (host, port, path)
         request = Request(url, data, headers)
