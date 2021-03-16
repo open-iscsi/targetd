@@ -82,3 +82,7 @@ docker run --privileged -v /etc/target:/etc/target -v /sys/kernel/config:/sys/ke
 ``` 
 
 where your config is stored at `/etc/target` on the host machine.
+
+### Clients/libraries utilizing JSON API
+* [golang - Library](https://github.com/lovi-cloud/go-targetd)
+* [python - libStorageMgmt plugin](https://github.com/libstorage/libstoragemgmt/tree/master/plugin/targetd_plugin)
