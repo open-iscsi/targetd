@@ -8,7 +8,7 @@ allocate volumes from an LVM volume group, and export those volumes
 over iSCSI.  It also has the ability to create remote file systems and export
 those file systems via NFS/CIFS (work in progress).
 
-targetd's sister project is [libStorageManagement](https://github.com/libstorage/libstoragemgmt/),
+targetd's sister project is [libStorageMgmt](https://github.com/libstorage/libstoragemgmt/),
 which allows admins to configure storage arrays (including targetd) in an array-neutral manner.
 
 targetd development
@@ -82,3 +82,7 @@ docker run --privileged -v /etc/target:/etc/target -v /sys/kernel/config:/sys/ke
 ``` 
 
 where your config is stored at `/etc/target` on the host machine.
+
+### Clients/libraries utilizing JSON API
+* [golang - Library](https://github.com/lovi-cloud/go-targetd)
+* [python - libStorageMgmt plugin](https://github.com/libstorage/libstoragemgmt/tree/master/plugin/targetd_plugin)
