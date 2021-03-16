@@ -8,7 +8,7 @@ allocate volumes from an LVM volume group, and export those volumes
 over iSCSI.  It also has the ability to create remote file systems and export
 those file systems via NFS/CIFS (work in progress).
 
-targetd's sister project is [libStorageManagement](https://github.com/libstorage/libstoragemgmt/),
+targetd's sister project is [libStorageMgmt](https://github.com/libstorage/libstoragemgmt/),
 which allows admins to configure storage arrays (including targetd) in an array-neutral manner.
 
 targetd development
