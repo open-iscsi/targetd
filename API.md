@@ -1,4 +1,4 @@
-targetd API, version 0.6
+targetd API, version 0.7
 ========================
 
 Summary
