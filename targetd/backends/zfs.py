@@ -14,7 +14,7 @@
 # Copyright 2012-2013, Andy Grover <agrover@redhat.com>
 #
 # Routines specific to ZFS to export zvols over iscsi
-import distutils.spawn
+import shutil
 import logging
 import re
 import subprocess
@@ -137,9 +137,7 @@ def _check_dataset_name(name):
 
 
 def _zfs_find_cmd():
-    cmd = distutils.spawn.find_executable("zfs") or distutils.spawn.find_executable(
-        "zfs", "/sbin:/usr/sbin"
-    )
+    cmd = shutil.which("zfs") or shutil.which("zfs", "/sbin:/usr/sbin")
     if cmd is None or not cmd:
         raise TargetdError(
             TargetdError.INVALID, "zfs_block_pools is set but no zfs command was found"
