@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name="targetd",
-    version="0.10.0",
+    version="0.10.1",
     description="Linux remote storage API daemon",
     license="GPLv3",
     maintainer="Andy Grover",

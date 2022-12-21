@@ -262,7 +262,7 @@ def block_pools(req):
         # Note: It is possible for percentages to return a (-1) which depending
         # on lvm2app library version can be returned as -1 or 2**64-1
 
-        unsigned_val = 2 ** 64 - 1
+        unsigned_val = 2**64 - 1
         free_bytes = thinp_lib_obj.size
         dp = thinp_lib_obj.data_percent
         mp = thinp_lib_obj.metadata_percent

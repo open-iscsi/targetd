@@ -1,0 +1,32 @@
+version: 2.1
+jobs:
+  build:
+    machine:
+      image: ubuntu-2204:2022.10.2
+      resource_class: medium
+    steps:
+      - checkout
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y python3-setuptools
+      - run: sudo apt-get install -y python3-pip
+      - run: sudo apt-get install -y python-dev
+      - run: sudo apt-get install -y python3
+      - run: sudo apt-get install -y python3-dev
+      - run: sudo apt-get install -y libpython2.7-dev
+      - run: sudo apt-get install -y libpython3.6-dev
+      - run: sudo apt-get install -y libblockdev-dev
+      - run: sudo apt-get install -y libblockdev-lvm2
+      - run: sudo apt-get install -y libblockdev-lvm-dev
+      - run: sudo apt-get install -y python3-blockdev
+      - run: sudo apt-get install -y python3-rtslib-fb
+      - run: sudo apt-get install -y targetcli-fb
+      - run: sudo apt-get install -y lvm2
+      - run: sudo apt-get install -y mount
+      - run: sudo apt-get install -y udev
+      - run: sudo apt-get install -y python3-yaml
+      - run: sudo apt-get install -y python3-setproctitle
+      - run: sudo apt-get install -y python3-six
+      - run: sudo apt-get install -y zfsutils-linux
+      - run: sudo apt-get install -y btrfs-progs
+      - run: sudo apt-get install -y nfs-kernel-server
+      - run: test/test.sh
