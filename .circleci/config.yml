@@ -11,6 +11,7 @@ jobs:
       - run: sudo apt-get install -y python3-pip
       - run: sudo apt-get install -y python3
       - run: sudo apt-get install -y python3-dev
+      - run: sudo apt-get install -y python3-coverage
       - run: sudo apt-get install -y libpython3-all-dev
       - run: sudo apt-get install -y libblockdev-dev
       - run: sudo apt-get install -y libblockdev-lvm2
@@ -27,4 +28,4 @@ jobs:
       - run: sudo apt-get install -y zfsutils-linux
       - run: sudo apt-get install -y btrfs-progs
       - run: sudo apt-get install -y nfs-kernel-server
-      - run: test/test.sh
+      - run: sudo test/test.sh
