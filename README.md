@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/open-iscsi/targetd.svg?branch=master)](https://travis-ci.org/open-iscsi/targetd)
-
 Remote configuration of a LIO-based storage appliance
 -----------------------------------------------------
 targetd turns Linux into a remotely-configurable storage appliance. It
