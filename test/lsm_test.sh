@@ -33,6 +33,9 @@ if [ $FEDORA -eq 0 ]; then
     V=1 make || exit 1
 
     # Setup some  symlinks
+    # We don't have pywbem available, remove plugin so we don't fail when we test for available plugins
+    # Note: we should likely just leverage the make install to custom location to avoid all this.
+    rm -rf `pwd`/plugin/smispy_plugin || exit 1
     ln -s `pwd`/plugin `pwd`/python_binding/lsm/plugin  || exit 1
     ln -s `pwd`/tools/lsmcli `pwd`/python_binding/lsm || exit 1
     ln -s `pwd`/python_binding/lsm/.libs/*.so `pwd`/python_binding/lsm/. || exit 1
