@@ -28,8 +28,7 @@ if [ $FEDORA -eq 0 ]; then
 
     ./autogen.sh || exit 1
 
-    # Not all the libraries for py3 exist
-    ./configure --with-python2 || exit 1
+    ./configure --without-smispy || exit 1
 
     V=1 make || exit 1
 

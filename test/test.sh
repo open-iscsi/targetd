@@ -150,9 +150,7 @@ fi
 
 # get/build/run or install libstoragemgmt tests
 # Need to update lsm for latest ubuntu
-# ./test/lsm_test.sh
-
-echo "skipping libStorageMgmt testing ..."
+./test/lsm_test.sh
 
 rc=$?
 if [ $rc -ne 0 ]; then
