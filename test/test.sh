@@ -31,13 +31,6 @@ if [ -f "/etc/redhat-release" ]; then
     FEDORA=1
 fi
 
-if [ $FEDORA -eq 0 ]; then
-    pip3 install black || exit 10
-    COV_CMD=python3-coverage
-else
-    COV_CMD=coverage3
-fi
-
 # Handle a couple options to allow developers to be more productive in
 # their test environment.
 SETUP=0
@@ -56,18 +49,24 @@ if [ $# -eq 1 ]; then
     fi
 fi
 
-# Used during development to clean up
-if [  $TEARDOWN -eq 1 ]; then
-    clean_up 0
-fi
-
-# Will use to see how well the test coverage is ...
+# Handle all the package dependencies here instead of using CircleCI as we can
+# hang the build when running apt-get in yaml configuration file.
 if [ $FEDORA -eq 0 ]; then
-    apt-get install python3-coverage || clean_up 1
+    export DEBIAN_FRONTEND="noninteractive"
+    apt-get update -y || clean_up 1
+    apt-get install `cat test/ubuntu_pkgs.txt` -y || clean_up 1
+    pip3 install black || exit 10
+    COV_CMD=python3-coverage
 else
     # Travis yml file handles dependencies, we will do that
     # here for other.
     dnf install `cat test/fedora_pkgs.txt` -y -q || clean_up 1
+    COV_CMD=coverage3
+fi
+
+# Used during development to clean up
+if [  $TEARDOWN -eq 1 ]; then
+    clean_up 0
 fi
 
 mkdir -p /etc/target || clean_up 1
