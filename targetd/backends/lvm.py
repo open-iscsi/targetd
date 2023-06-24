@@ -18,17 +18,22 @@
 import gi
 
 gi.require_version("GLib", "2.0")
-gi.require_version("BlockDev", "2.0")
-
 from gi.repository import GLib
-from gi.repository import BlockDev as bd
+
+try:
+    gi.require_version("BlockDev", "3.0")
+    from gi.repository import BlockDev as bd
+except ValueError:
+    gi.require_version("BlockDev", "2.0")
+    from gi.repository import BlockDev as bd
+
+    bd.switch_init_checks(False)
+
 from targetd.main import TargetdError
 
 REQUESTED_PLUGIN_NAMES = {"lvm"}
 
 requested_plugins = bd.plugin_specs_from_names(REQUESTED_PLUGIN_NAMES)
-
-bd.switch_init_checks(False)
 
 pools = []
 vg_name_2_pool_name_dict = {}
