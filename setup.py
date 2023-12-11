@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="targetd",
-    version="0.10.2",
+    version="0.10.3",
     description="Linux remote storage API daemon",
     license="GPLv3",
     maintainer="Andy Grover",
