@@ -203,17 +203,6 @@ class HTTPService(ThreadingMixIn, HTTPServer, object):
 class TLSHTTPService(HTTPService):
     """Also use TLS to encrypt the connection"""
 
-    def finish_request(self, sock, addr):
-        sockssl = ssl.wrap_socket(
-            sock,
-            server_side=True,
-            keyfile=config["ssl_key"],
-            certfile=config["ssl_cert"],
-            ciphers="HIGH:-aNULL:-eNULL:-PSK",
-            suppress_ragged_eofs=True,
-        )
-        return self.RequestHandlerClass(sockssl, addr, self)
-
     @staticmethod
     def _verify_ssl_file(f):
         rc = False
@@ -319,6 +308,14 @@ def handler(signum, frame):
         RUN = False
 
 
+def wrap_socket(s):
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.check_hostname = False
+    context.load_cert_chain(config["ssl_cert"], config["ssl_key"])
+    context.set_ciphers("HIGH:-aNULL:-eNULL:-PSK")
+    wrapped = context.wrap_socket(s, server_side=True)
+    return wrapped
+
 def main():
 
     signal.signal(signal.SIGINT, handler)
@@ -349,6 +346,7 @@ def main():
         note = "(TLS no)"
 
     server = server_class(("", 18700), TargetHandler)
+    server.socket = wrap_socket(server.socket)
     log.info("started server %s", note)
 
     server.timeout = 0.5

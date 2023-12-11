@@ -26,7 +26,7 @@ pools = []
 pools_fs = dict()
 zfs_cmd = ""
 zfs_enable_copy = False
-ALLOWED_DATASET_NAMES = re.compile("^[A-Za-z0-9][A-Za-z0-9_.\-]*$")
+ALLOWED_DATASET_NAMES = re.compile("^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
 class VolInfo(object):
