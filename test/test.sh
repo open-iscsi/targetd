@@ -10,6 +10,9 @@ clean_up ()
 
     pkill lsmd || echo "Warning: Unable to end lsmd process"
 
+    # Give lsmd a moment to stop
+    sleep 1
+
     $COV_CMD report || echo "Warning: Unable to generate report"
 
     if [ $FEDORA -eq 0 ]; then
@@ -89,6 +92,21 @@ echo "password: targetd" >> /etc/target/targetd.yaml
 # We are going to utilize SSL for all tests as users should be using
 # it, so make a self signed cert for testing
 ./test/make_test_cert.sh || clean_up 1
+
+
+CONNECT="${TARGETD_UT_PROTO:-https}"
+
+echo "CONNECT = $CONNECT"
+
+# We also may want to test without SSL support
+if [[ "$CONNECT" = "http" ]]; then
+    echo "Changing targetd.yaml to disable ssl"
+     sed -e 's/ssl: true/ssl: false/' -i /etc/target/targetd.yaml
+fi
+
+echo "======= /etc/target/targetd.yaml contents ============="
+cat /etc/target/targetd.yaml
+echo "======================================================="
 
 # Create the needed block devices for lvm, btrfs, and zfs for testing
 truncate -s 1T /tmp/block1.img || clean_up 1
