@@ -15,6 +15,10 @@ if [ -f "/etc/redhat-release" ]; then
     FEDORA=1
 fi
 
+
+CONNECT="${TARGETD_UT_PROTO:-https}"
+echo "CONNECT = $CONNECT"
+
 if [ $FEDORA -eq 0 ]; then
 
     export DEBIAN_FRONTEND="noninteractive"
@@ -48,10 +52,25 @@ if [ $FEDORA -eq 0 ]; then
 
     # Start up the daemon
     PYTHONPATH=$PYENV daemon/lsmd -v -d --plugindir `pwd`/plugin > $LSMDLOG 2>&1 &
-    PYTHONPATH=$PYENV test/plugin_test.py -v --uri targetd+ssl://admin@localhost?ca_cert_file=/tmp/targetd_cert.pem --password targetd
+
+
+    # We also may want to test without SSL support
+    if [[ "$CONNECT" = "http" ]]; then
+        echo "Using NON-ssl URI!"
+        PYTHONPATH=$PYENV test/plugin_test.py -v --uri targetd://admin@localhost --password targetd
+    else
+        PYTHONPATH=$PYENV test/plugin_test.py -v --uri targetd+ssl://admin@localhost?ca_cert_file=/tmp/targetd_cert.pem --password targetd
+    fi
+
 else
     systemctl start libstoragemgmt.service
-    python3 test/plugin_test.py.in -v --uri targetd+ssl://admin@localhost?ca_cert_file=/tmp/targetd_cert.pem --password targetd
+
+    if [[ "$CONNECT" = "http" ]]; then
+        echo "Using NON-ssl URI!"
+        python3 test/plugin_test.py.in -v --uri targetd://admin@localhost --password targetd
+    else
+        python3 test/plugin_test.py.in -v --uri targetd+ssl://admin@localhost?ca_cert_file=/tmp/targetd_cert.pem --password targetd
+    fi
 fi
 
 rc=$?

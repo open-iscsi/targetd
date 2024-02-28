@@ -661,6 +661,9 @@ class TestTargetd(unittest.TestCase):
             for block_pool in self._block_pools():
                 # Create a volume, then export it
                 vol = TestTargetd._vol_create(block_pool, rs(length=6))
+                # On slow systems is can take a bit before the newly created block device
+                # is really available.
+                time.sleep(10)
                 export = self._export_create(block_pool, vol)
                 self._export_destroy(export)
                 self._vol_destroy(block_pool, vol)
