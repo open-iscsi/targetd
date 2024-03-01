@@ -31,10 +31,12 @@
 #
 
 import json
+import os
 import time
 import socket
 import base64
 import ssl
+
 from test import testlib
 
 from urllib.request import Request, urlopen
@@ -45,7 +47,16 @@ host = "localhost"
 port = 18700
 path = "/targetrpc"
 id_num = 1
-use_ssl = True
+
+# Allow us to test without SSL.
+proto = os.getenv("TARGETD_UT_PROTO", "https")
+print("CONNECT=%s" % proto)
+
+if proto == "https":
+    use_ssl = True
+else:
+    use_ssl = False
+
 pools = ["vg-targetd/thin_pool", "zfs_targetd/block_pool"]
 fs_pools = ["/mnt/btrfs", "/zfs_targetd/fs_pool"]
 

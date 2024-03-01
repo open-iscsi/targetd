@@ -7,3 +7,4 @@ jobs:
     steps:
       - checkout
       - run: sudo test/test.sh
+      - run: sudo test/test_no_ssl.sh
