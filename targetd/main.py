@@ -346,7 +346,10 @@ def main():
         note = "(TLS no)"
 
     server = server_class(("", 18700), TargetHandler)
-    server.socket = wrap_socket(server.socket)
+
+    if config["ssl"]:
+        server.socket = wrap_socket(server.socket)
+
     log.info("started server %s", note)
 
     server.timeout = 0.5
